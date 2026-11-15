@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Chantiers">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="theme-color" content="#2b2b2b">
+<title>Gestion chantiers</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;background:#efeeeb;color:#222;font-size:16px;-webkit-text-size-adjust:100%}
+a{color:#d9731a}
+.top{background:#2b2b2b;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;position:-webkit-sticky;position:sticky;top:0;z-index:20}
+.brand{color:#f28c28;font-weight:700;text-decoration:none;font-size:19px}
+.top nav a{color:#fff;text-decoration:none;margin-left:16px;font-size:15px}
+main{max-width:1020px;margin:0 auto;padding:14px}
+.card{background:#fff;border-radius:10px;padding:14px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+h1{font-size:22px;margin:2px 0 12px}
+h2{font-size:18px;margin:0 0 10px}
+.muted{color:#777}
+.small{font-size:13px}
+.btn{display:inline-block;background:#f28c28;color:#fff;border:0;border-radius:8px;padding:10px 14px;font-size:15px;margin:0 6px 6px 0;text-decoration:none;cursor:pointer;-webkit-appearance:none;font-family:inherit;line-height:1.2}
+.btn.sec{background:#e4e3e0;color:#222}
+.btn.dark{background:#2b2b2b}
+.btn.danger{background:#c0392b}
+.btn.small{padding:6px 10px;font-size:13px}
+.btn.icon{padding:6px 9px;font-size:14px;margin:0 0 0 4px}
+label{display:block;font-size:13px;color:#666;margin:8px 0 3px}
+input,select,textarea{width:100%;font-size:16px;padding:8px;border:1px solid #ccc;border-radius:6px;background:#fff;font-family:inherit;color:#222}
+input[type=checkbox]{width:auto;-webkit-transform:scale(1.4);transform:scale(1.4);margin:0 8px 0 4px}
+textarea{min-height:64px;resize:vertical}
+.grid{display:flex;flex-wrap:wrap;margin:0 -6px}
+.grid>div{padding:0 6px;flex:1 1 200px;min-width:0}
+.grid>div.w2{flex:2 1 300px}
+.row{display:flex;align-items:center;flex-wrap:wrap;padding:11px 4px;border-bottom:1px solid #eee;text-decoration:none;color:#222}
+.row:last-child{border-bottom:0}
+.row .main{flex:1 1 220px;min-width:0}
+.row .side{text-align:right;flex:0 0 auto;margin-left:10px}
+.row b{display:block}
+.pill{display:inline-block;padding:3px 9px;border-radius:20px;font-size:12px;font-weight:600;background:#ddd;color:#333}
+.st-0{background:#e4e3e0}.st-1{background:#d6e6f5;color:#1b4f80}.st-2{background:#fde3c8;color:#9a4a00}.st-3{background:#f8d36b;color:#5a4300}.st-4{background:#cfe8d4;color:#1e6630}.st-5{background:#2e7d32;color:#fff}
+.stats{display:flex;flex-wrap:wrap;margin:0 -7px 7px}
+.stat{flex:1 1 150px;background:#2b2b2b;color:#fff;border-radius:10px;padding:12px 14px;margin:0 7px 7px}
+.stat .v{font-size:22px;font-weight:700;color:#f28c28}
+.stat .l{font-size:13px;color:#ccc}
+.todo{display:flex;align-items:center;flex-wrap:wrap;padding:9px 0;border-bottom:1px solid #eee}
+.todo:last-child{border-bottom:0}
+.todo .t{flex:1 1 220px}
+.todo .when{font-size:12px;font-weight:700;margin-right:10px;padding:3px 7px;border-radius:5px;background:#eee}
+.todo .late{background:#c0392b;color:#fff}
+.todo .now{background:#f28c28;color:#fff}
+.poste{border-left:5px solid #f28c28}
+.poste.pc{border-left-color:#8a8a8a}
+.ph{display:flex;align-items:center}
+.pnum{background:#2b2b2b;color:#fff;border-radius:6px;padding:6px 10px;font-weight:700;margin-right:8px}
+.ptitre{font-weight:700;font-size:17px}
+.lhead{display:flex;font-size:12px;color:#888;margin-top:12px;padding:0 3px}
+.ligne{display:flex;flex-wrap:wrap;align-items:center;border-bottom:1px dashed #e3e3e3;padding:4px 0}
+.ligne>div{padding:3px}
+.l-des{flex:1 1 240px;min-width:0}
+.l-q{flex:0 0 78px}
+.l-u{flex:0 0 96px}
+.l-pu{flex:0 0 100px}
+.l-tot{flex:0 0 104px;text-align:right;font-weight:600;font-size:15px}
+.l-x{flex:0 0 auto;white-space:nowrap}
+.pfoot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-top:10px}
+.stot{font-weight:700;font-size:16px}
+.recap div{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee}
+.recap div.big{font-size:18px;font-weight:700;border-bottom:0;color:#d9731a}
+.chk{display:flex;align-items:center;margin-top:12px;font-size:15px}
+.sigbox{border:1px dashed #bbb;border-radius:8px;min-height:90px;display:flex;align-items:center;justify-content:center;margin-bottom:6px;background:#fafafa}
+.sigbox img{max-width:100%;max-height:110px}
+.hidden{display:none!important}
+.modal{position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:50;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:20px 10px}
+.modal-box{background:#fff;border-radius:12px;max-width:720px;margin:0 auto;padding:16px}
+#sigc{width:100%;height:auto;border:1px solid #bbb;border-radius:8px;background:#fff;touch-action:none;display:block;margin-bottom:10px}
+.calcres{background:#f7f5f1;border-radius:8px;padding:10px;margin:12px 0}
+.calcres div{display:flex;justify-content:space-between;padding:4px 0}
+.toast{position:fixed;left:50%;bottom:24px;-webkit-transform:translateX(-50%);transform:translateX(-50%);background:#2b2b2b;color:#fff;padding:10px 16px;border-radius:8px;z-index:60;font-size:14px}
+.cat-row{display:flex;flex-wrap:wrap;align-items:center;border-bottom:1px solid #eee;padding:4px 0}
+.cat-row>div{padding:3px}
+/* Document devis */
+.docwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.doc{background:#fff;width:794px;margin:0 auto 20px;padding:34px 38px;font-size:11.5px;color:#111;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+.doc table{width:100%;border-collapse:collapse}
+.dh td{vertical-align:top;padding:6px 8px;border:1px solid #333}
+.dh .dh-r{text-align:center;width:30%}
+.dbar{display:flex;justify-content:space-around;border:1px solid #333;border-top:0;padding:5px;font-weight:600}
+.dinfo{border:1px solid #333;border-top:0;padding:8px 12px}
+.dinfo p{margin:3px 0}
+.dt{margin-top:10px}
+.dt th{text-align:left;border-bottom:1.5px solid #333;padding:5px 4px;font-size:11px}
+.dt td{padding:3px 4px;vertical-align:top}
+.dt .r{text-align:right;white-space:nowrap}
+.dt .c{text-align:center}
+.dt tr.sec td{padding-top:12px;font-weight:700}
+.dt tr.st td{font-weight:700;border-top:1px solid #999}
+.dt .note{font-style:italic;font-size:10px;color:#444}
+.dt .pu{background:#fdf3dc}
+.drecap{margin-top:12px}
+.drecap td{padding:3px 4px}
+.drecap .r{text-align:right;white-space:nowrap;width:120px}
+.drecap tr.g td{font-weight:700;border:1.5px solid #333}
+.dbox{border:1px solid #333;padding:8px 12px;margin-top:12px;white-space:pre-wrap}
+.dpay{border:1.5px solid #333;padding:8px 12px;margin-top:12px;display:flex;justify-content:space-between;font-weight:700;font-size:13px}
+.dsig{display:flex;margin-top:12px;border:1px solid #333}
+.dsig>div{flex:1;padding:8px 12px;min-height:120px}
+.dsig img{max-height:80px;max-width:100%}
+.dfoot{margin-top:10px;font-size:10.5px;text-align:center}
+/* Planning */
+.plan-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.plan-title{font-size:17px;font-weight:700;margin:6px 0 8px}
+.day{border-bottom:1px solid #eee;padding:8px 0;display:flex}
+.day:last-child{border-bottom:0}
+.day .dl{flex:0 0 92px;font-weight:700;font-size:14px;text-transform:capitalize}
+.day .dl.today{color:#d9731a}
+.day .di{flex:1;min-width:0}
+.chip{display:block;padding:6px 9px;border-radius:6px;margin:0 0 5px;font-size:14px;color:#fff;text-decoration:none;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.k-chantier{background:#f28c28}.k-location{background:#2f6fb0}.k-livraison{background:#7b5ea7}.k-perso{background:#555}.k-commande{background:#8a8a8a}.k-paiement{background:#2e7d32}.k-devis{background:#f6c08a;color:#222!important}
+.legend{margin-top:6px}
+.legend span{display:inline-block;margin:0 10px 4px 0;font-size:12px;color:#555}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:middle}
+.mtab{width:100%;border-collapse:collapse;table-layout:fixed}
+.mtab th{font-size:12px;color:#888;padding:4px;font-weight:600}
+.mtab td{border:1px solid #e6e6e6;vertical-align:top;height:96px;padding:3px;cursor:pointer;overflow:hidden}
+.mtab td.out{background:#f7f7f5;color:#aaa}
+.mtab .dn{font-size:12px;font-weight:700;display:inline-block;margin-bottom:2px;padding:0 5px}
+.mtab td.today .dn{background:#f28c28;color:#fff;border-radius:10px}
+.mtab .chip{font-size:11px;padding:2px 4px;margin-bottom:2px;border-radius:4px}
+.more{font-size:11px;color:#888}
+.warn{background:#fdecea;color:#a12a1d;border-radius:8px;padding:8px 10px;margin-top:10px;font-size:14px}
+@media (max-width:600px){
+ .mtab td{height:58px}
+ .mtab .chip{font-size:0;height:6px;padding:0;margin:1px 0}
+ .more{font-size:9px}
+ .brand{font-size:16px}
+}
+@media (max-width:600px){
+ .lhead{display:none}
+ .l-des{flex:1 1 100%}
+ .l-q{flex:1 1 60px}.l-u{flex:1 1 70px}.l-pu{flex:1 1 80px}.l-tot{flex:1 1 90px}
+ .top nav a{margin-left:9px;font-size:13px}
+}
+@media print{
+ @page{size:A4;margin:10mm}
+ .no-print,.top{display:none!important}
+ body{background:#fff}
+ main{padding:0;max-width:none}
+ .docwrap{overflow:visible}
+ .doc{box-shadow:none;margin:0;width:auto;padding:0}
+ .dt tr{page-break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<header class="top no-print">
+ <a href="#home" class="brand">Chantiers</a>
+ <nav><a href="#home">Accueil</a><a href="#planning">Planning</a><a href="#catalogue">Catalogue</a><a href="#reglages">Réglages</a></nav>
+</header>
+<main id="app"></main>
+<div id="modal" class="modal no-print hidden"><div class="modal-box" id="modal-box"></div></div>
+<datalist id="unites"></datalist>
+<datalist id="cat"></datalist>
+<datalist id="machines"></datalist>
+<script>
+(function(){
+'use strict';
+var KEY='chantiers_v1';
+var STATUTS=['brouillon','envoyé','signé','en cours','terminé','payé'];
+var UNITES=['u','m','ML','m²','m³','t','kg','heure','jour','forfait','paquet','panneau','rouleau','barre','pièce','cartouche','sac','palette','km'];
+var state=null, cur=null, saveTimer=null;
+
+/* ---------- outils ---------- */
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function num(v){if(typeof v==='number')return isFinite(v)?v:0;var n=parseFloat(String(v==null?'':v).replace(/\s/g,'').replace(',','.'));return isFinite(n)?n:0;}
+function eur(n){return num(n).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';}
+function fq(n){return num(n).toLocaleString('fr-FR',{maximumFractionDigits:3});}
+function pad(n){return ('0'+n).slice(-2);}
+function iso(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function today(){return iso(new Date());}
+function parseISO(s){if(!s)return null;var p=s.split('-');return new Date(+p[0],+p[1]-1,+p[2]);}
+function addDays(s,n){var d=parseISO(s);d.setDate(d.getDate()+n);return iso(d);}
+function daysBetween(a,b){return Math.round((parseISO(b)-parseISO(a))/86400000);}
+function frDate(s){if(!s)return '';var p=s.split('-');return p[2]+'/'+p[1]+'/'+p[0];}
+function longDate(s){var d=parseISO(s);if(!d)return '';return ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'][d.getDay()]+' '+d.getDate()+' '+['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'][d.getMonth()]+' '+d.getFullYear();}
+function stamp(ts){if(!ts)return '';var d=new Date(ts);return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear()+' à '+pad(d.getHours())+'h'+pad(d.getMinutes());}
+function sel(a,b){return a===b?' selected':'';}
+function $(id){return document.getElementById(id);}
+function toast(msg){var t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);},2200);}
+
+/* ---------- données ---------- */
+function defState(){return {version:1,settings:{noms:'',adresse1:'',adresse2:'',tel:'',mail:'',iban:'',bic:'',taux:'20',deplacement:'80',delaiCommande:'3',limites:''},catalogue:[],devis:[],seq:{}};}
+function load(){
+ try{var s=localStorage.getItem(KEY);state=s?JSON.parse(s):defState();}catch(e){state=defState();}
+ var d=defState();
+ if(!state.settings)state.settings={};
+ for(var k in d.settings){if(state.settings[k]===undefined)state.settings[k]=d.settings[k];}
+ if(!state.catalogue)state.catalogue=[];
+ if(!state.devis)state.devis=[];
+ if(!state.seq)state.seq={};
+ if(!state.events)state.events=[];
+}
+function save(){
+ try{localStorage.setItem(KEY,JSON.stringify(state));}
+ catch(e){alert('Mémoire pleine ou indisponible. Fais une sauvegarde dans Réglages, puis supprime d’anciens devis ou signatures.');}
+}
+function saveSoon(){clearTimeout(saveTimer);saveTimer=setTimeout(function(){saveTimer=null;save();},400);}
+function flush(){if(saveTimer){clearTimeout(saveTimer);saveTimer=null;save();}}
+window.addEventListener('pagehide',flush);
+window.addEventListener('beforeunload',flush);
+document.addEventListener('visibilitychange',function(){if(document.hidden)flush();});
+function touch(){if(cur)cur.modifieLe=Date.now();}
+
+function ligneTot(l){return num(l.qte)*num(l.pu);}
+function posteTot(p){var t=0;for(var i=0;i<p.lignes.length;i++)t+=ligneTot(p.lignes[i]);return t;}
+function totaux(d){var c=0,f=0;d.postes.forEach(function(p){if(p.type==='client')c+=posteTot(p);else f+=posteTot(p);});return {client:c,facture:f,global:c+f};}
+
+function newNumero(){var d=new Date();var k=d.getFullYear()+pad(d.getMonth()+1);state.seq[k]=(state.seq[k]||0)+1;return 'DA'+k+'-'+('00'+state.seq[k]).slice(-3);}
+function newDevis(){
+ var d={id:uid(),numero:newNumero(),indice:'A',date:today(),statut:'brouillon',client:{nom:'',adresse:'',ville:'',tel:'',mail:''},lieu:'',reference:'',description:'',dateChantier:'',echeance:'',postes:[],limites:state.settings.limites||'',planning:'',sigClient:'',sigPresta:'',sigDate:'',creeLe:Date.now(),modifieLe:Date.now()};
+ state.devis.unshift(d);save();return d;
+}
+function newPoste(type,titre){return {id:uid(),titre:titre||'',type:type,fournisseur:'',devisNum:'',devisDate:'',dateCommande:'',commande:false,note:'',lignes:[]};}
+function newLigne(des,qte,unite,pu){return {id:uid(),des:des||'',qte:qte==null?'':String(qte),unite:unite||'u',pu:pu==null?'':String(pu)};}
+function getDevis(id){for(var i=0;i<state.devis.length;i++)if(state.devis[i].id===id)return state.devis[i];return null;}
+function findCat(des){var k=String(des||'').trim().toLowerCase();if(!k)return null;for(var i=0;i<state.catalogue.length;i++){if(String(state.catalogue[i].des).trim().toLowerCase()===k)return state.catalogue[i];}return null;}
+
+function refreshDatalists(){
+ $('unites').innerHTML=UNITES.map(function(u){return '<option value="'+esc(u)+'">';}).join('');
+ $('cat').innerHTML=state.catalogue.map(function(c){return '<option value="'+esc(c.des)+'">';}).join('');
+ var seen={},m=[];
+ (state.events||[]).forEach(function(e){var k=String(e.machine||'').trim();if(k&&!seen[k.toLowerCase()]){seen[k.toLowerCase()]=1;m.push(k);}});
+ $('machines').innerHTML=m.map(function(x){return '<option value="'+esc(x)+'">';}).join('');
+}
+
+/* ---------- planning : données ---------- */
+var TYPES={chantier:'Chantier',location:'Location',livraison:'Livraison / enlèvement',perso:'Autre'};
+var JOURS=['lundi','mardi','mercredi','jeudi','vendredi','samedi','dimanche'];
+var MOIS=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+var plan={mode:'semaine',ref:null},pendingEv=null;
+function mondayOf(s){var d=parseISO(s);d.setDate(d.getDate()-((d.getDay()+6)%7));return iso(d);}
+function evEnd(e){return e.fin&&e.fin>=e.debut?e.fin:e.debut;}
+function evOn(e,ds){return e.debut<=ds&&ds<=evEnd(e);}
+function hasEvent(id){for(var i=0;i<state.events.length;i++)if(state.events[i].devisId===id)return state.events[i];return null;}
+function getEv(id){for(var i=0;i<state.events.length;i++)if(state.events[i].id===id)return state.events[i];return null;}
+function itemsOn(ds){
+ var out=[];
+ state.events.forEach(function(e){if(evOn(e,ds))out.push({k:e.type,ev:e,label:(e.heure?e.heure.replace(':','h')+' ':'')+(e.titre||TYPES[e.type])+(e.machine?' ('+e.machine+')':'')});});
+ state.devis.forEach(function(d){
+  if(d.statut==='payé'||d.statut==='brouillon')return;
+  if(d.dateChantier===ds&&!hasEvent(d.id))out.push({k:'devis',d:d,label:'Chantier à planifier : '+(d.client.nom||d.numero)});
+  d.postes.forEach(function(p){if(p.type==='client'&&p.dateCommande===ds&&!p.commande)out.push({k:'commande',d:d,label:'Commander '+(p.titre||'matériaux')+(p.fournisseur?' ('+p.fournisseur+')':'')});});
+  if(d.echeance===ds&&(d.statut==='signé'||d.statut==='en cours'||d.statut==='terminé'))out.push({k:'paiement',d:d,label:'Paiement '+(d.client.nom||d.numero)+', '+eur(totaux(d).facture)});
+ });
+ out.sort(function(a,b){var ha=a.ev&&a.ev.heure?a.ev.heure:'99',hb=b.ev&&b.ev.heure?b.ev.heure:'99';return ha<hb?-1:ha>hb?1:0;});
+ return out;
+}
+function chip(it){
+ if(it.ev)return '<a class="chip k-'+it.k+'" data-a="evEdit" data-id="'+it.ev.id+'">'+esc(it.label)+'</a>';
+ return '<a class="chip k-'+it.k+'" href="#devis-'+it.d.id+'">'+esc(it.label)+'</a>';
+}
+function dayLabel(ds){var d=parseISO(ds);return JOURS[(d.getDay()+6)%7]+'<br><span class="small muted">'+pad(d.getDate())+'/'+pad(d.getMonth()+1)+'</span>';}
+function conflicts(e){
+ var m=String(e.machine||'').trim().toLowerCase(),out=[];if(!m)return out;
+ state.events.forEach(function(o){if(o.id!==e.id&&String(o.machine||'').trim().toLowerCase()===m&&o.debut<=evEnd(e)&&e.debut<=evEnd(o))out.push(o);});
+ return out;
+}
+function periode(e){return e.fin&&e.fin>e.debut?'du '+frDate(e.debut)+' au '+frDate(e.fin):'le '+frDate(e.debut);}
+
+/* ---------- rappels ---------- */
+function gcal(title,date,details){var a=date.replace(/-/g,''),b=addDays(date,1).replace(/-/g,'');return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent(title)+'&dates='+a+'/'+b+'&details='+encodeURIComponent(details||'');}
+function rappels(){
+ var out=[],t=today();
+ state.devis.forEach(function(d){
+  var actif=(d.statut==='signé'||d.statut==='en cours');
+  if(actif){d.postes.forEach(function(p){
+   if(p.type==='client'&&p.dateCommande&&!p.commande){
+    var n=daysBetween(t,p.dateCommande);
+    if(n<=7)out.push({n:n,date:p.dateCommande,d:d,txt:'Commander '+(p.titre||'matériaux')+(p.fournisseur?' chez '+p.fournisseur:'')+(p.devisNum?' (devis '+p.devisNum+')':'')});
+   }
+  });}
+  if((actif||d.statut==='terminé')&&d.echeance){
+   var n2=daysBetween(t,d.echeance);
+   if(n2<=1)out.push({n:n2,date:d.echeance,d:d,pay:true,txt:(n2<0?'Relancer le paiement de ':'Paiement attendu de ')+(d.client.nom||'client')+', '+eur(totaux(d).facture)});
+  }
+ });
+ out.sort(function(a,b){return a.n-b.n;});
+ return out;
+}
+function whenTag(n){if(n<0)return '<span class="when late">Retard '+(-n)+' j</span>';if(n===0)return '<span class="when now">Aujourd’hui</span>';if(n===1)return '<span class="when">Demain</span>';return '<span class="when">Dans '+n+' j</span>';}
+
+/* ---------- vues ---------- */
+function viewHome(){
+ var r=rappels(),attente=0,enCours=0,ca=0,y=String(new Date().getFullYear());
+ state.devis.forEach(function(d){
+  var t=totaux(d);
+  if(d.statut==='signé'||d.statut==='en cours'||d.statut==='terminé'){attente+=t.facture;}
+  if(d.statut==='signé'||d.statut==='en cours')enCours++;
+  if(d.statut==='payé'&&String(d.date).slice(0,4)===y)ca+=t.facture;
+ });
+ var h='<div class="card"><h1>Accueil</h1><button class="btn" data-a="new">+ Nouveau devis</button></div>';
+ h+='<div class="stats"><div class="stat"><div class="v">'+eur(attente)+'</div><div class="l">En attente de paiement</div></div>';
+ h+='<div class="stat"><div class="v">'+enCours+'</div><div class="l">Chantiers signés ou en cours</div></div>';
+ h+='<div class="stat"><div class="v">'+eur(ca)+'</div><div class="l">Encaissé '+y+' (part chacun : '+eur(ca/2)+')</div></div></div>';
+ h+='<div class="card"><h2>À faire</h2>';
+ if(!r.length)h+='<p class="muted">Rien d’urgent. Les rappels apparaissent ici pour les devis signés ou en cours.</p>';
+ r.forEach(function(x){
+  h+='<div class="todo">'+whenTag(x.n)+'<div class="t"><a href="#devis-'+x.d.id+'">'+esc(x.txt)+'</a><div class="small muted">'+esc(x.d.numero)+(x.d.reference?', '+esc(x.d.reference):'')+'</div></div>';
+  h+='<a class="btn small sec" href="'+gcal(x.txt,x.date,x.d.numero+' '+(x.d.reference||''))+'" target="_blank">Agenda</a></div>';
+ });
+ h+='</div>'+weekSummary()+'<div class="card"><h2>Devis ('+state.devis.length+')</h2>';
+ if(!state.devis.length)h+='<p class="muted">Aucun devis pour le moment.</p>';
+ state.devis.forEach(function(d){
+  var t=totaux(d),si=STATUTS.indexOf(d.statut);
+  h+='<a class="row" href="#devis-'+d.id+'"><div class="main"><b>'+esc(d.client.nom||'Client à définir')+'</b><span class="small muted">'+esc(d.numero)+(d.reference?', '+esc(d.reference):'')+'</span></div>';
+  h+='<div class="side"><span class="pill st-'+si+'">'+esc(d.statut)+'</span><div class="small" style="margin-top:4px"><b style="display:inline">'+eur(t.facture)+'</b> facturé</div><div class="small muted">global '+eur(t.global)+'</div></div></a>';
+ });
+ h+='</div>';
+ return h;
+}
+
+function inp(b,v,ph,extra){return '<input data-b="'+b+'" value="'+esc(v)+'"'+(ph?' placeholder="'+esc(ph)+'"':'')+(extra||'')+'>';}
+function numInp(b,v,ph){return inp(b,v,ph,' inputmode="decimal" autocomplete="off"');}
+
+function viewPoste(p,i,n){
+ var b='d.postes.'+i,h='';
+ h+='<div class="card poste '+(p.type==='client'?'pc':'pf')+'"><div class="ph"><span class="pnum">'+(i+1)+'</span>'+inp(b+'.titre',p.titre,'Titre du poste',' class="ptitre"')+'</div>';
+ h+='<label>Qui paie ?</label><select data-b="'+b+'.type" data-re="1"><option value="facture"'+sel(p.type,'facture')+'>Facturé par nous (prestation)</option><option value="client"'+sel(p.type,'client')+'>Payé directement par le client (pour info)</option></select>';
+ if(p.type==='client'){
+  h+='<div class="grid"><div><label>Fournisseur</label>'+inp(b+'.fournisseur',p.fournisseur,'ex : BGC')+'</div><div><label>N° devis fournisseur</label>'+inp(b+'.devisNum',p.devisNum)+'</div><div><label>Date devis fournisseur</label><input type="date" data-b="'+b+'.devisDate" value="'+esc(p.devisDate)+'"></div></div>';
+  h+='<div class="grid"><div><label>Date de commande (rappel)</label><input type="date" data-b="'+b+'.dateCommande" value="'+esc(p.dateCommande)+'"></div><div><label class="chk"><input type="checkbox" data-b="'+b+'.commande"'+(p.commande?' checked':'')+'>Commandé</label></div></div>';
+ }
+ h+='<div class="lhead"><div class="l-des">Désignation</div><div class="l-q">Qté</div><div class="l-u">Unité</div><div class="l-pu">PU HT</div><div class="l-tot">Total HT</div><div class="l-x" style="width:84px"></div></div>';
+ p.lignes.forEach(function(l,j){
+  var lb=b+'.lignes.'+j;
+  h+='<div class="ligne"><div class="l-des">'+inp(lb+'.des',l.des,'Désignation',' list="cat" data-cat="1" autocomplete="off"')+'</div>';
+  h+='<div class="l-q">'+numInp(lb+'.qte',l.qte,'Qté')+'</div>';
+  h+='<div class="l-u">'+inp(lb+'.unite',l.unite,'Unité',' list="unites" autocomplete="off"')+'</div>';
+  h+='<div class="l-pu">'+numInp(lb+'.pu',l.pu,'PU HT')+'</div>';
+  h+='<div class="l-tot" data-t="l-'+i+'-'+j+'">'+eur(ligneTot(l))+'</div>';
+  h+='<div class="l-x"><button class="btn sec icon" data-a="toCat" data-i="'+i+'" data-j="'+j+'" title="Enregistrer au catalogue">☆</button><button class="btn sec icon" data-a="delL" data-i="'+i+'" data-j="'+j+'" title="Supprimer la ligne">✕</button></div></div>';
+ });
+ h+='<label>Note du poste (en italique sur le devis)</label>'+inp(b+'.note',p.note,'ex : Livraison directe par toupie, sans pompe');
+ h+='<div class="pfoot"><div><button class="btn small" data-a="addL" data-i="'+i+'">+ Ligne</button>';
+ if(i>0)h+='<button class="btn small sec" data-a="upP" data-i="'+i+'">↑</button>';
+ if(i<n-1)h+='<button class="btn small sec" data-a="downP" data-i="'+i+'">↓</button>';
+ h+='<button class="btn small sec" data-a="delP" data-i="'+i+'">Supprimer le poste</button></div>';
+ h+='<div class="stot">Sous-total : <span data-t="p-'+i+'">'+eur(posteTot(p))+'</span></div></div></div>';
+ return h;
+}
+
+function sigBlock(who,img,label){
+ return '<div><label>'+label+'</label><div class="sigbox">'+(img?'<img src="'+img+'" alt="signature">':'<span class="muted small">Pas encore signé</span>')+'</div><button class="btn small" data-a="sig" data-w="'+who+'">Signer</button>'+(img?'<button class="btn small sec" data-a="clrSig" data-w="'+who+'">Effacer</button>':'')+'</div>';
+}
+
+function viewDevis(d){
+ var t=totaux(d),h='';
+ h+='<div class="card"><a class="btn sec small" href="#home">← Accueil</a><h1>Devis '+esc(d.numero)+'</h1>';
+ h+='<a class="btn dark" href="#apercu-'+d.id+'">Aperçu / PDF</a><button class="btn sec" data-a="devisPlan">'+(hasEvent(d.id)?'Voir au planning':'Mettre au planning')+'</button><button class="btn sec" data-a="calc">Calcul d’ouvrage</button><button class="btn sec" data-a="dup">Dupliquer</button><button class="btn danger" data-a="del">Supprimer</button>';
+ h+='<div class="small muted">Créé le '+stamp(d.creeLe)+', modifié le '+stamp(d.modifieLe)+'</div></div>';
+
+ h+='<div class="card"><h2>Infos</h2><div class="grid"><div><label>N° devis</label>'+inp('d.numero',d.numero)+'</div><div><label>Indice</label>'+inp('d.indice',d.indice)+'</div><div><label>Date du devis</label><input type="date" data-b="d.date" value="'+esc(d.date)+'"></div></div>';
+ h+='<div class="grid"><div><label>Statut</label><select data-b="d.statut" data-re="1">'+STATUTS.map(function(s){return '<option'+sel(d.statut,s)+'>'+s+'</option>';}).join('')+'</select></div>';
+ h+='<div><label>Date du chantier</label><input type="date" data-b="d.dateChantier" value="'+esc(d.dateChantier)+'"></div>';
+ h+='<div><label>Échéance de paiement (rappel)</label><input type="date" data-b="d.echeance" value="'+esc(d.echeance)+'"></div></div></div>';
+
+ h+='<div class="card"><h2>Client</h2><div class="grid"><div class="w2"><label>Nom</label>'+inp('d.client.nom',d.client.nom,'M. Dupont Jean')+'</div><div><label>Téléphone</label>'+inp('d.client.tel',d.client.tel,'',' type="tel"')+'</div></div>';
+ h+='<div class="grid"><div class="w2"><label>Adresse</label>'+inp('d.client.adresse',d.client.adresse)+'</div><div><label>CP et ville</label>'+inp('d.client.ville',d.client.ville)+'</div></div>';
+ h+='<label>Mail</label>'+inp('d.client.mail',d.client.mail,'',' type="email"')+'</div>';
+
+ h+='<div class="card"><h2>Chantier</h2><div class="grid"><div><label>Lieu</label>'+inp('d.lieu',d.lieu,'ex : Cauroir (59)')+'</div><div class="w2"><label>Référence / intitulé</label>'+inp('d.reference',d.reference,'ex : Dalle béton XF1')+'</div></div>';
+ h+='<label>Prestations proposées</label><textarea data-b="d.description" placeholder="Description du chantier">'+esc(d.description)+'</textarea></div>';
+
+ d.postes.forEach(function(p,i){h+=viewPoste(p,i,d.postes.length);});
+
+ h+='<div class="card"><h2>Ajouter</h2><button class="btn" data-a="addP" data-type="client">+ Poste fournisseur (payé client)</button><button class="btn" data-a="addP" data-type="facture">+ Poste facturé</button><button class="btn dark" data-a="addMO">+ Main d’œuvre et déplacement</button><button class="btn sec" data-a="calc">Calcul d’ouvrage</button></div>';
+
+ h+='<div class="card recap"><h2>Récapitulatif</h2><div><span>Fournitures payées par le client (info)</span><b data-t="tc">'+eur(t.client)+'</b></div><div><span>Prestation facturée</span><b data-t="tf">'+eur(t.facture)+'</b></div><div><span>Part chacun (50/50)</span><b data-t="th">'+eur(t.facture/2)+'</b></div><div class="big"><span>Budget global HT</span><span data-t="tg">'+eur(t.global)+'</span></div></div>';
+
+ h+='<div class="card"><h2>Conditions</h2><label>Limites de prestation</label><textarea data-b="d.limites" placeholder="Ce qui n’est pas compris dans la prestation">'+esc(d.limites)+'</textarea>';
+ h+='<label>Planning</label><textarea data-b="d.planning" placeholder="ex : coffrage le vendredi, coulage le samedi 9h30">'+esc(d.planning)+'</textarea></div>';
+
+ h+='<div class="card"><h2>Signatures</h2><div class="grid">'+sigBlock('client',d.sigClient,'Client (bon pour accord)')+sigBlock('presta',d.sigPresta,'Prestataire')+'</div>';
+ h+='<label>Date de signature</label><input type="date" data-b="d.sigDate" value="'+esc(d.sigDate)+'"></div>';
+ return h;
+}
+
+function viewApercu(d){
+ var s=state.settings,t=totaux(d),h='',facNums=[];
+ h+='<div class="card no-print"><a class="btn sec" href="#devis-'+d.id+'">← Modifier</a><button class="btn" data-a="print">Imprimer / PDF</button>';
+ h+='<p class="small muted">Sur iPad ou iPhone : Imprimer, puis écarte deux doigts sur l’aperçu de la page pour l’ouvrir en PDF, et partage le (mail, Fichiers…).</p></div>';
+ h+='<div class="docwrap"><div class="doc">';
+ h+='<table class="dh"><tr><td><b>'+esc(s.noms||'Vos noms (Réglages)')+'</b><br>'+(s.tel?'Tél : '+esc(s.tel)+'<br>':'')+(s.mail?'Mail : '+esc(s.mail):'')+'</td><td>'+esc(s.adresse1)+'<br>'+esc(s.adresse2)+'</td>';
+ h+='<td class="dh-r"><b>'+esc(d.client.nom)+'</b><br>'+esc(d.client.adresse)+'<br>'+esc(d.client.ville)+(d.client.tel?'<br>'+esc(d.client.tel):'')+'</td></tr></table>';
+ h+='<div class="dbar"><span>DEVIS</span><span>'+esc(d.numero)+'</span><span>IND '+esc(d.indice)+'</span><span>'+frDate(d.date)+'</span></div>';
+ h+='<div class="dinfo">'+(d.lieu?'<p>Lieu du chantier : <b>'+esc(d.lieu)+'</b></p>':'')+'<p>Référence : <b>'+esc(d.numero)+(d.reference?', '+esc(d.reference):'')+'</b></p>';
+ if(d.description)h+='<p style="white-space:pre-wrap"><b>Prestations proposées :</b> '+esc(d.description)+'</p>';
+ h+='</div>';
+ h+='<table class="dt"><thead><tr><th style="width:34px">Ref</th><th>Désignation</th><th class="r" style="width:52px">Qté</th><th class="c" style="width:64px">U</th><th class="r" style="width:84px">PU HT</th><th class="r" style="width:92px">Total HT</th></tr></thead><tbody>';
+ d.postes.forEach(function(p,i){
+  if(p.type!=='client')facNums.push(i+1);
+  var head=esc(p.titre||'Poste');
+  if(p.type==='client'&&(p.fournisseur||p.devisNum))head+=', '+esc(p.fournisseur)+(p.devisNum?' devis n° '+esc(p.devisNum)+(p.devisDate?' du '+frDate(p.devisDate):''):'')+' (en annexe)';
+  h+='<tr class="sec"><td>'+(i+1)+'</td><td colspan="5">'+head+'</td></tr>';
+  p.lignes.forEach(function(l){
+   h+='<tr><td></td><td>'+esc(l.des)+'</td><td class="r">'+fq(l.qte)+'</td><td class="c">'+esc(l.unite)+'</td><td class="r pu">'+eur(l.pu)+'</td><td class="r">'+eur(ligneTot(l))+'</td></tr>';
+  });
+  if(p.note)h+='<tr><td></td><td colspan="5" class="note">'+esc(p.note)+'</td></tr>';
+  h+='<tr class="st"><td></td><td colspan="4" class="r">Sous-total HT'+(p.type==='client'?' (réglé directement par le client)':'')+'</td><td class="r">'+eur(posteTot(p))+'</td></tr>';
+ });
+ h+='</tbody></table>';
+ h+='<table class="drecap">';
+ if(t.client)h+='<tr><td class="r" style="width:auto">Fournitures réglées directement par le client (pour information) :</td><td class="r">'+eur(t.client)+'</td></tr>';
+ h+='<tr><td class="r" style="width:auto">Prestation :</td><td class="r">'+eur(t.facture)+'</td></tr>';
+ h+='<tr class="g"><td class="r" style="width:auto">Budget global HT du chantier :</td><td class="r">'+eur(t.global)+'</td></tr></table>';
+ if(d.limites)h+='<div class="dbox"><b>Limites de prestation :</b>\n'+esc(d.limites)+'</div>';
+ if(d.planning)h+='<div class="dbox"><b>Planning :</b>\n'+esc(d.planning)+'</div>';
+ h+='<div class="dpay"><span>Montant de la prestation à régler au prestataire'+(facNums.length?' (poste'+(facNums.length>1?'s ':' ')+facNums.join(' et ')+')':'')+' :</span><span>'+eur(t.facture)+'</span></div>';
+ h+='<div class="dsig"><div>Le client :<br><span class="small">Signature, bon pour accord et commande</span><br>'+(d.sigClient?'<img src="'+d.sigClient+'" alt="">':'')+'</div>';
+ h+='<div>Le prestataire :<br>'+(d.sigPresta?'<img src="'+d.sigPresta+'" alt="">':'')+'<br>Date : '+longDate(d.sigDate||d.date)+'</div></div>';
+ if(s.iban)h+='<div class="dfoot">Coordonnées bancaires : IBAN '+esc(s.iban)+(s.bic?', BIC '+esc(s.bic):'')+'</div>';
+ h+='</div></div>';
+ return h;
+}
+
+function viewPlanning(){
+ if(!plan.ref)plan.ref=today();
+ var t=today(),mois=plan.mode==='mois',h='';
+ h+='<div class="card"><div class="plan-head"><h1 style="margin:0">Planning</h1><button class="btn" data-a="evNew" style="margin:0">+ Événement</button></div>';
+ h+='<div style="margin-top:12px"><button class="btn sec small" data-a="planPrev">‹</button><button class="btn sec small" data-a="planToday">Aujourd’hui</button><button class="btn sec small" data-a="planNext">›</button>';
+ h+='<button class="btn small '+(mois?'sec':'dark')+'" data-a="planMode" data-m="semaine">Semaine</button><button class="btn small '+(mois?'dark':'sec')+'" data-a="planMode" data-m="mois">Mois</button></div>';
+ var leg=[['chantier','Chantier'],['location','Location'],['livraison','Livraison'],['commande','Commande'],['paiement','Paiement'],['devis','À planifier']];
+ h+='<div class="legend">'+leg.map(function(l){return '<span><i class="k-'+l[0]+'"></i>'+l[1]+'</span>';}).join('')+'</div>';
+ if(!mois){
+  var mon=mondayOf(plan.ref),sun=addDays(mon,6),dm=parseISO(mon),dsu=parseISO(sun);
+  h+='<div class="plan-title">Semaine du '+dm.getDate()+(dm.getMonth()!==dsu.getMonth()?' '+MOIS[dm.getMonth()]:'')+' au '+dsu.getDate()+' '+MOIS[dsu.getMonth()]+' '+dsu.getFullYear()+'</div>';
+  for(var k=0;k<7;k++){
+   var ds=addDays(mon,k),its=itemsOn(ds);
+   h+='<div class="day"><div class="dl'+(ds===t?' today':'')+'">'+dayLabel(ds)+'</div><div class="di">'+its.map(chip).join('')+'<button class="btn sec small" data-a="evNew" data-date="'+ds+'" style="margin:0">+</button></div></div>';
+  }
+ }else{
+  var r=parseISO(plan.ref),first=iso(new Date(r.getFullYear(),r.getMonth(),1)),start=mondayOf(first),mth=r.getMonth();
+  h+='<div class="plan-title" style="text-transform:capitalize">'+MOIS[mth]+' '+r.getFullYear()+'</div>';
+  h+='<table class="mtab"><tr>'+['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'].map(function(x){return '<th>'+x+'</th>';}).join('')+'</tr>';
+  for(var w=0;w<6;w++){
+   var wStart=addDays(start,w*7);
+   if(w>0&&parseISO(wStart).getMonth()!==mth)break;
+   h+='<tr>';
+   for(var dd=0;dd<7;dd++){
+    var ds2=addDays(wStart,dd),dobj=parseISO(ds2),it2=itemsOn(ds2);
+    h+='<td data-a="planDay" data-date="'+ds2+'" class="'+(dobj.getMonth()!==mth?'out ':'')+(ds2===t?'today':'')+'"><span class="dn">'+dobj.getDate()+'</span>'+it2.slice(0,3).map(chip).join('')+(it2.length>3?'<div class="more">+'+(it2.length-3)+'</div>':'')+'</td>';
+   }
+   h+='</tr>';
+  }
+  h+='</table>';
+ }
+ return h+'</div>';
+}
+
+function weekSummary(){
+ var t=today(),h='',n=0;
+ for(var k=0;k<7;k++){
+  var ds=addDays(t,k),its=itemsOn(ds);
+  if(!its.length)continue;n++;
+  h+='<div class="day"><div class="dl'+(k===0?' today':'')+'">'+(k===0?'aujourd’hui<br><span class="small muted">'+frDate(ds).slice(0,5)+'</span>':dayLabel(ds))+'</div><div class="di">'+its.map(chip).join('')+'</div></div>';
+ }
+ return '<div class="card"><div class="plan-head"><h2 style="margin:0">7 prochains jours</h2><a class="btn sec small" href="#planning" style="margin:0">Planning</a></div>'+(n?h:'<p class="muted">Rien de prévu.</p>')+'</div>';
+}
+
+function openEv(e){
+ var isNew=!e.id;
+ var dv='<option value="">Aucun</option>'+state.devis.map(function(d){return '<option value="'+d.id+'"'+sel(e.devisId,d.id)+'>'+esc(d.numero+', '+(d.client.nom||'client ?')+(d.reference?', '+d.reference:''))+'</option>';}).join('');
+ var ty=Object.keys(TYPES).map(function(k){return '<option value="'+k+'"'+sel(e.type,k)+'>'+TYPES[k]+'</option>';}).join('');
+ var h='<h2>'+(isNew?'Nouvel événement':'Modifier l’événement')+'</h2><div id="evf">';
+ h+='<div class="grid"><div class="w2"><label>Titre</label><input id="eT" value="'+esc(e.titre)+'" placeholder="ex : Dalle Dhordain"></div><div><label>Type</label><select id="eY">'+ty+'</select></div></div>';
+ h+='<div class="grid"><div><label>Du</label><input type="date" id="eD" value="'+esc(e.debut)+'"></div><div><label>Au (si plusieurs jours)</label><input type="date" id="eF" value="'+esc(e.fin)+'"></div><div><label>Heure</label><input type="time" id="eH" value="'+esc(e.heure)+'"></div></div>';
+ h+='<div class="grid"><div><label>Machine / matériel</label><input id="eM" list="machines" autocomplete="off" value="'+esc(e.machine)+'" placeholder="ex : Scie de sol 650"></div><div class="w2"><label>Lié au devis</label><select id="eDv">'+dv+'</select></div></div>';
+ h+='<div class="grid"><div><label>Client</label><input id="eC" value="'+esc(e.client)+'"></div><div><label>Lieu</label><input id="eL" value="'+esc(e.lieu)+'"></div></div>';
+ h+='<label>Note</label><textarea id="eN">'+esc(e.note)+'</textarea><div id="eW"></div></div>';
+ h+='<div style="margin-top:12px"><button class="btn" data-a="evSave" data-id="'+esc(e.id||'')+'">Enregistrer</button>';
+ if(e.devisId&&getDevis(e.devisId))h+='<a class="btn sec" href="#devis-'+e.devisId+'">Ouvrir le devis</a>';
+ if(!isNew)h+='<a class="btn sec" target="_blank" href="'+gcal(e.titre||TYPES[e.type],e.debut,(e.lieu||'')+' '+(e.note||''))+'">Google Agenda</a><button class="btn danger" data-a="evDel" data-id="'+e.id+'">Supprimer</button>';
+ h+='<button class="btn sec" data-a="close">Fermer</button></div>';
+ showModal(h);
+ function check(){
+  var tmp={id:e.id,machine:$('eM').value,debut:$('eD').value,fin:$('eF').value},c=conflicts(tmp);
+  $('eW').innerHTML=c.length?'<div class="warn">Attention, '+esc(tmp.machine)+' est déjà prévue : '+c.map(function(o){return esc(o.titre||TYPES[o.type])+' '+periode(o);}).join(' ; ')+'</div>':'';
+ }
+ $('evf').addEventListener('change',check);$('evf').addEventListener('input',check);
+ $('eDv').addEventListener('change',function(){
+  var d=getDevis(this.value);if(!d)return;
+  if(!$('eT').value)$('eT').value=(d.reference||'Chantier')+(d.client.nom?', '+d.client.nom:'');
+  if(!$('eC').value)$('eC').value=d.client.nom;
+  if(!$('eL').value)$('eL').value=d.lieu;
+  if(d.dateChantier&&isNew)$('eD').value=d.dateChantier;
+ });
+ check();
+}
+function evSave(id){
+ var e=id?getEv(id):null,isNew=!e;
+ if(!e)e={id:uid(),creeLe:Date.now()};
+ var deb=$('eD').value;if(!deb){toast('Indique une date');return;}
+ var fin=$('eF').value;if(fin&&fin<=deb)fin='';
+ var data={titre:$('eT').value.trim(),type:$('eY').value,debut:deb,fin:fin,heure:$('eH').value,machine:$('eM').value.trim(),devisId:$('eDv').value,client:$('eC').value.trim(),lieu:$('eL').value.trim(),note:$('eN').value};
+ for(var k in data)e[k]=data[k];
+ e.modifieLe=Date.now();
+ var c=conflicts(e);
+ if(c.length&&!confirm(e.machine+' est déjà prévue sur cette période. Enregistrer quand même ?'))return;
+ if(isNew)state.events.push(e);
+ if(e.devisId){var d=getDevis(e.devisId);if(d&&!d.dateChantier){d.dateChantier=e.debut;}}
+ save();closeModal();plan.ref=e.debut;render(true);toast('Planning enregistré');
+}
+
+function viewCatalogue(){
+ var h='<div class="card"><h1>Catalogue</h1><p class="small muted">Tes articles et prix habituels. En tapant une désignation dans un devis, l’appli la propose et remplit l’unité et le prix. Bouton ☆ sur une ligne de devis pour l’ajouter ici.</p><button class="btn" data-a="catAdd">+ Article</button></div><div class="card">';
+ if(!state.catalogue.length)h+='<p class="muted">Catalogue vide.</p>';
+ state.catalogue.forEach(function(c,i){
+  var b='c.'+i;
+  h+='<div class="cat-row"><div style="flex:1 1 220px">'+inp(b+'.des',c.des,'Désignation')+'</div><div style="flex:0 0 90px">'+inp(b+'.unite',c.unite,'Unité',' list="unites"')+'</div><div style="flex:0 0 100px">'+numInp(b+'.pu',c.pu,'PU HT')+'</div><div style="flex:1 1 140px">'+inp(b+'.fournisseur',c.fournisseur,'Fournisseur')+'</div><div><button class="btn sec icon" data-a="catDel" data-i="'+i+'">✕</button></div></div>';
+ });
+ return h+'</div>';
+}
+
+function viewReglages(){
+ var s=state.settings,used=0;
+ try{used=(localStorage.getItem(KEY)||'').length;}catch(e){}
+ var h='<div class="card"><h1>Réglages</h1><h2>Prestataire (en tête du devis)</h2>';
+ h+='<label>Noms</label>'+inp('s.noms',s.noms,'ex : DUCROQUET Maxime, WECXSTEEN Jules');
+ h+='<div class="grid"><div><label>Adresse</label>'+inp('s.adresse1',s.adresse1)+'</div><div><label>CP et ville</label>'+inp('s.adresse2',s.adresse2)+'</div></div>';
+ h+='<div class="grid"><div><label>Téléphone</label>'+inp('s.tel',s.tel)+'</div><div><label>Mail</label>'+inp('s.mail',s.mail)+'</div></div>';
+ h+='<div class="grid"><div class="w2"><label>IBAN (pied de devis)</label>'+inp('s.iban',s.iban)+'</div><div><label>BIC</label>'+inp('s.bic',s.bic)+'</div></div></div>';
+ h+='<div class="card"><h2>Valeurs par défaut</h2><div class="grid"><div><label>Taux horaire main d’œuvre (€ HT)</label>'+numInp('s.taux',s.taux)+'</div><div><label>Forfait déplacement (€ HT)</label>'+numInp('s.deplacement',s.deplacement)+'</div><div><label>Commander les matériaux (jours avant chantier)</label>'+numInp('s.delaiCommande',s.delaiCommande)+'</div></div>';
+ h+='<label>Limites de prestation par défaut</label><textarea data-b="s.limites">'+esc(s.limites)+'</textarea></div>';
+ h+='<div class="card"><h2>Sauvegarde</h2><p class="small muted">Les données sont dans cet appareil ('+Math.round(used/1024)+' Ko utilisés sur environ 5000). Fais une sauvegarde régulièrement, et pour passer d’un appareil à l’autre en attendant la synchro.</p>';
+ h+='<button class="btn" data-a="export">Exporter un fichier</button><button class="btn sec" data-a="showExport">Copier les données</button>';
+ h+='<label>Importer un fichier de sauvegarde</label><input type="file" id="impFile" accept=".json,application/json,text/plain">';
+ h+='<label>Ou coller les données</label><textarea id="impTxt" placeholder="Colle ici le texte d’une sauvegarde"></textarea><button class="btn sec" data-a="importTxt">Importer le texte collé</button>';
+ h+='<textarea id="expTxt" class="hidden" readonly style="min-height:120px;margin-top:10px"></textarea></div>';
+ return h;
+}
+
+/* ---------- rendu et routage ---------- */
+function render(keep){
+ flush();
+ var y=window.pageYOffset||0,h=(location.hash||'#home').slice(1),app=$('app');
+ refreshDatalists();
+ if(h.indexOf('devis-')===0){cur=getDevis(h.slice(6));if(!cur){location.hash='#home';return;}app.innerHTML=viewDevis(cur);}
+ else if(h.indexOf('apercu-')===0){cur=getDevis(h.slice(7));if(!cur){location.hash='#home';return;}app.innerHTML=viewApercu(cur);}
+ else if(h==='planning'){cur=null;app.innerHTML=viewPlanning();if(pendingEv){var pe=pendingEv;pendingEv=null;openEv(pe);}}
+ else if(h==='catalogue'){cur=null;app.innerHTML=viewCatalogue();}
+ else if(h==='reglages'){cur=null;app.innerHTML=viewReglages();bindImport();}
+ else{cur=null;app.innerHTML=viewHome();}
+ window.scrollTo(0,keep?y:0);
+}
+function updateTotals(){
+ if(!cur)return;
+ var t=totaux(cur),els=document.querySelectorAll('[data-t]');
+ for(var k=0;k<els.length;k++){
+  var el=els[k],key=el.getAttribute('data-t'),p=key.split('-'),v=0;
+  if(p[0]==='l'){var po=cur.postes[+p[1]];if(!po||!po.lignes[+p[2]])continue;v=ligneTot(po.lignes[+p[2]]);}
+  else if(p[0]==='p'){if(!cur.postes[+p[1]])continue;v=posteTot(cur.postes[+p[1]]);}
+  else if(key==='tc')v=t.client;else if(key==='tf')v=t.facture;else if(key==='tg')v=t.global;else if(key==='th')v=t.facture/2;
+  el.textContent=eur(v);
+ }
+}
+function setB(path,val){
+ var parts=path.split('.'),root=parts.shift(),o;
+ if(root==='d')o=cur;else if(root==='s')o=state.settings;else if(root==='c')o=state.catalogue;
+ if(!o)return;
+ for(var i=0;i<parts.length-1;i++){o=o[parts[i]];if(o==null)return;}
+ o[parts[parts.length-1]]=val;
+ if(root==='d')touch();
+ if(root==='c')refreshDatalists();
+ updateTotals();saveSoon();
+}
+function lineFromPath(path){var m=path.match(/^d\.postes\.(\d+)\.lignes\.(\d+)\./);if(!m||!cur)return null;var p=cur.postes[+m[1]];return p?p.lignes[+m[2]]:null;}
+
+document.addEventListener('input',function(e){
+ var el=e.target,b=el.getAttribute&&el.getAttribute('data-b');
+ if(!b||el.type==='checkbox'||el.tagName==='SELECT')return;
+ setB(b,el.value);
+});
+document.addEventListener('change',function(e){
+ var el=e.target,b=el.getAttribute&&el.getAttribute('data-b');
+ if(!b)return;
+ setB(b,el.type==='checkbox'?el.checked:el.value);
+ if(el.getAttribute('data-cat')){
+  var l=lineFromPath(b),c=findCat(el.value);
+  if(l&&c&&!num(l.pu)){l.unite=c.unite||l.unite;l.pu=String(c.pu||'');save();render(true);return;}
+ }
+ if(el.getAttribute('data-re')){save();render(true);}
+});
+window.addEventListener('hashchange',function(){closeModal();render(false);});
+
+/* ---------- modale ---------- */
+function showModal(html){$('modal-box').innerHTML=html;$('modal').classList.remove('hidden');}
+function closeModal(){$('modal').classList.add('hidden');$('modal-box').innerHTML='';}
+$('modal').addEventListener('click',function(e){if(e.target.id==='modal')closeModal();});
+
+/* signature */
+function openSig(who){
+ showModal('<h2>Signature '+(who==='client'?'du client':'du prestataire')+'</h2><p class="small muted">Signe avec le doigt dans le cadre.</p><canvas id="sigc" width="700" height="260"></canvas><button class="btn sec" data-a="sigClear">Recommencer</button><button class="btn" data-a="sigOk" data-w="'+who+'">Valider</button><button class="btn sec" data-a="close">Annuler</button>');
+ var c=$('sigc'),x=c.getContext('2d'),drawing=false;
+ x.lineWidth=3.5;x.lineCap='round';x.lineJoin='round';x.strokeStyle='#14286e';c._has=false;
+ function pos(e){var r=c.getBoundingClientRect(),t=e.touches&&e.touches.length?e.touches[0]:e;return {x:(t.clientX-r.left)*c.width/r.width,y:(t.clientY-r.top)*c.height/r.height};}
+ function start(e){e.preventDefault();drawing=true;var p=pos(e);x.beginPath();x.moveTo(p.x,p.y);x.lineTo(p.x+0.1,p.y+0.1);x.stroke();c._has=true;}
+ function move(e){if(!drawing)return;e.preventDefault();var p=pos(e);x.lineTo(p.x,p.y);x.stroke();}
+ function end(){drawing=false;}
+ c.addEventListener('touchstart',start,false);c.addEventListener('touchmove',move,false);c.addEventListener('touchend',end,false);
+ c.addEventListener('mousedown',start,false);c.addEventListener('mousemove',move,false);c.addEventListener('mouseup',end,false);c.addEventListener('mouseleave',end,false);
+}
+
+/* calcul d'ouvrage : dalle */
+function openCalc(){
+ var opts='<option value="new">Nouveau poste "Matériaux" (payé client)</option>';
+ cur.postes.forEach(function(p,i){opts+='<option value="'+i+'">Poste '+(i+1)+' : '+esc(p.titre||'sans titre')+'</option>';});
+ function f(id,lab,v){return '<div><label>'+lab+'</label><input id="'+id+'" inputmode="decimal" value="'+v+'"></div>';}
+ showModal('<h2>Calcul d’ouvrage : dalle béton armé</h2><div id="calcf"><div class="grid">'+f('cL','Longueur (m)','4')+f('cW','Largeur (m)','4')+f('cE','Épaisseur (cm)','20')+'</div>'+
+ '<div class="grid">'+f('cP','Marge de perte béton (%)','10')+'<div><label>Nappes de treillis</label><select id="cN"><option value="1">1 nappe</option><option value="2" selected>2 nappes</option></select></div>'+f('cR','Recouvrement treillis (cm)','20')+'</div>'+
+ '<div class="grid">'+f('cPL','Panneau treillis longueur (m)','4')+f('cPW','Panneau treillis largeur (m)','2.4')+f('cH','Hauteur planche coffrage (cm)','20')+'</div>'+
+ '<div class="calcres" id="calcres"></div><label>Ajouter dans</label><select id="cT">'+opts+'</select></div>'+
+ '<p class="small muted">Quantités indicatives, à ajuster (massifs, chutes, distanciers…). Les prix sont repris du catalogue si un article correspond.</p>'+
+ '<button class="btn" data-a="calcAdd">Ajouter au devis</button><button class="btn sec" data-a="close">Fermer</button>');
+ $('calcf').addEventListener('input',calcShow);$('calcf').addEventListener('change',calcShow);
+ calcShow();
+}
+function calcRes(){
+ function v(id){return num($(id).value);}
+ var L=v('cL'),W=v('cW'),E=v('cE')/100,P=v('cP')/100,N=v('cN')||1,R=v('cR')/100,PL=v('cPL')||4,PW=v('cPW')||2.4,H=(v('cH')||20)/100;
+ function nb(len,pan){if(len<=0)return 0;if(len<=pan)return 1;if(pan-R<=0)return 0;return Math.ceil((len-R)/(pan-R)-1e-9);}
+ var theo=L*W*E,beton=Math.ceil(theo*(1+P)*10)/10;
+ var rangs=Math.max(1,Math.ceil(E/H-1e-9)),coff=Math.ceil(2*(L+W)*rangs*10)/10;
+ var pan=Math.min(nb(L,PL)*nb(W,PW),nb(L,PW)*nb(W,PL))*N;
+ var film=Math.ceil(L*W*1.15*10)/10;
+ return {theo:theo,items:[{k:'béton',des:'Béton',qte:beton,unite:'m³'},{k:'coffrage',des:'Planche de coffrage',qte:coff,unite:'ML'},{k:'treillis',des:'Treillis soudé',qte:pan,unite:'panneau'},{k:'polyane',des:'Film polyane',qte:film,unite:'m²'}]};
+}
+function calcShow(){
+ var r=calcRes(),h='<div><span>Volume théorique</span><b>'+fq(Math.round(r.theo*100)/100)+' m³</b></div>';
+ r.items.forEach(function(it){h+='<div><span>'+it.des+'</span><b>'+fq(it.qte)+' '+it.unite+'</b></div>';});
+ $('calcres').innerHTML=h;
+}
+function calcAdd(){
+ var r=calcRes(),tv=$('cT').value,p;
+ if(tv==='new'){p=newPoste('client','Matériaux');if(cur.dateChantier)p.dateCommande=addDays(cur.dateChantier,-num(state.settings.delaiCommande));cur.postes.push(p);}
+ else p=cur.postes[+tv];
+ r.items.forEach(function(it){
+  if(!it.qte)return;
+  var c=null;
+  for(var i=0;i<state.catalogue.length;i++){if(String(state.catalogue[i].des).toLowerCase().indexOf(it.k)>=0){c=state.catalogue[i];break;}}
+  p.lignes.push(newLigne(c?c.des:it.des,it.qte,c&&c.unite?c.unite:it.unite,c?c.pu:''));
+ });
+ touch();save();closeModal();render(true);toast('Quantités ajoutées');
+}
+
+/* sauvegarde */
+function bindImport(){
+ var f=$('impFile');if(!f)return;
+ f.addEventListener('change',function(){
+  var file=f.files&&f.files[0];if(!file)return;
+  var rd=new FileReader();rd.onload=function(){doImport(String(rd.result));};rd.readAsText(file);
+ });
+}
+function doImport(txt){
+ var o;
+ try{o=JSON.parse(txt);}catch(e){alert('Fichier illisible.');return;}
+ if(!o||!o.devis||!o.settings){alert('Ce n’est pas une sauvegarde de l’appli.');return;}
+ if(!confirm('Remplacer toutes les données de cet appareil par cette sauvegarde ('+o.devis.length+' devis) ?'))return;
+ state=o;load2();save();location.hash='#home';render(false);toast('Sauvegarde importée');
+}
+function load2(){var d=defState();for(var k in d.settings){if(state.settings[k]===undefined)state.settings[k]=d.settings[k];}if(!state.catalogue)state.catalogue=[];if(!state.seq)state.seq={};if(!state.events)state.events=[];}
+
+/* ---------- actions ---------- */
+document.addEventListener('click',function(e){
+ var el=e.target.closest?e.target.closest('[data-a]'):null;if(!el)return;
+ var a=el.getAttribute('data-a'),i=+el.getAttribute('data-i'),j=+el.getAttribute('data-j'),w=el.getAttribute('data-w'),s=state.settings;
+ if(el.tagName==='BUTTON')e.preventDefault();
+ switch(a){
+  case 'new':var d=newDevis();location.hash='#devis-'+d.id;break;
+  case 'dup':
+   var c=JSON.parse(JSON.stringify(cur));c.id=uid();c.numero=newNumero();c.indice='A';c.date=today();c.statut='brouillon';c.sigClient='';c.sigPresta='';c.sigDate='';c.echeance='';c.creeLe=Date.now();c.modifieLe=Date.now();
+   c.postes.forEach(function(p){p.id=uid();p.commande=false;p.dateCommande='';});
+   state.devis.unshift(c);save();location.hash='#devis-'+c.id;toast('Devis dupliqué');break;
+  case 'del':if(confirm('Supprimer définitivement le devis '+cur.numero+' ?')){state.events.forEach(function(ev){if(ev.devisId===cur.id)ev.devisId='';});state.devis.splice(state.devis.indexOf(cur),1);save();location.hash='#home';}break;
+  case 'addP':
+   var p=newPoste(el.getAttribute('data-type'),el.getAttribute('data-type')==='client'?'Fournitures':'Prestation');
+   if(p.type==='client'&&cur.dateChantier)p.dateCommande=addDays(cur.dateChantier,-num(s.delaiCommande));
+   p.lignes.push(newLigne());cur.postes.push(p);touch();save();render(true);break;
+  case 'addMO':
+   var m=newPoste('facture','Main d’œuvre');m.lignes.push(newLigne('2 personnes','', 'heure',s.taux));
+   var dp=newPoste('facture','Déplacement');dp.lignes.push(newLigne('Déplacements, allers retours','1','forfait',s.deplacement));
+   cur.postes.push(m);cur.postes.push(dp);touch();save();render(true);break;
+  case 'addL':cur.postes[i].lignes.push(newLigne());touch();save();render(true);break;
+  case 'delL':cur.postes[i].lignes.splice(j,1);touch();save();render(true);break;
+  case 'upP':var t1=cur.postes[i];cur.postes[i]=cur.postes[i-1];cur.postes[i-1]=t1;touch();save();render(true);break;
+  case 'downP':var t2=cur.postes[i];cur.postes[i]=cur.postes[i+1];cur.postes[i+1]=t2;touch();save();render(true);break;
+  case 'delP':if(confirm('Supprimer le poste '+(i+1)+' et ses lignes ?')){cur.postes.splice(i,1);touch();save();render(true);}break;
+  case 'toCat':
+   var l=cur.postes[i].lignes[j];if(!String(l.des).trim()){toast('Ligne sans désignation');break;}
+   var ex=findCat(l.des);
+   if(ex){ex.unite=l.unite;ex.pu=l.pu;if(cur.postes[i].fournisseur)ex.fournisseur=cur.postes[i].fournisseur;toast('Prix mis à jour dans le catalogue');}
+   else{state.catalogue.push({id:uid(),des:String(l.des).trim(),unite:l.unite,pu:l.pu,fournisseur:cur.postes[i].fournisseur||''});toast('Ajouté au catalogue');}
+   save();refreshDatalists();break;
+  case 'sig':openSig(w);break;
+  case 'clrSig':if(w==='client')cur.sigClient='';else cur.sigPresta='';touch();save();render(true);break;
+  case 'sigClear':var cv=$('sigc');cv.getContext('2d').clearRect(0,0,cv.width,cv.height);cv._has=false;break;
+  case 'sigOk':
+   var cc=$('sigc');
+   if(cc._has){var img=cc.toDataURL('image/png');if(w==='client')cur.sigClient=img;else cur.sigPresta=img;if(!cur.sigDate)cur.sigDate=today();touch();save();}
+   closeModal();render(true);break;
+  case 'close':closeModal();break;
+  case 'calc':openCalc();break;
+  case 'calcAdd':calcAdd();break;
+  case 'print':window.print();break;
+  case 'catAdd':state.catalogue.unshift({id:uid(),des:'',unite:'u',pu:'',fournisseur:''});save();render(true);break;
+  case 'catDel':state.catalogue.splice(i,1);save();render(true);break;
+  case 'export':
+   try{var blob=new Blob([JSON.stringify(state)],{type:'application/json'}),u=URL.createObjectURL(blob),aa=document.createElement('a');aa.href=u;aa.download='sauvegarde-chantiers-'+today()+'.json';document.body.appendChild(aa);aa.click();setTimeout(function(){document.body.removeChild(aa);URL.revokeObjectURL(u);},1000);}
+   catch(err){toast('Export fichier impossible ici, utilise Copier les données');}
+   break;
+  case 'showExport':
+   var ta=$('expTxt');ta.value=JSON.stringify(state);ta.classList.remove('hidden');ta.focus();ta.select();ta.setSelectionRange(0,ta.value.length);
+   try{document.execCommand('copy');toast('Données copiées');}catch(err2){toast('Sélectionne et copie le texte');}
+   break;
+  case 'evNew':openEv({id:'',titre:'',type:'chantier',debut:el.getAttribute('data-date')||plan.ref||today(),fin:'',heure:'',devisId:'',machine:'',client:'',lieu:'',note:''});break;
+  case 'evEdit':closeModal();var ev=getEv(el.getAttribute('data-id'));if(ev)openEv(ev);break;
+  case 'evSave':evSave(el.getAttribute('data-id'));break;
+  case 'evDel':if(confirm('Supprimer cet événement ?')){var ix=state.events.indexOf(getEv(el.getAttribute('data-id')));if(ix>=0)state.events.splice(ix,1);save();closeModal();render(true);}break;
+  case 'planPrev':case 'planNext':
+   var dir=a==='planNext'?1:-1;
+   if(plan.mode==='mois'){var pr=parseISO(plan.ref||today());plan.ref=iso(new Date(pr.getFullYear(),pr.getMonth()+dir,1));}
+   else plan.ref=addDays(plan.ref||today(),7*dir);
+   render(true);break;
+  case 'planToday':plan.ref=today();render(true);break;
+  case 'planMode':plan.mode=el.getAttribute('data-m');render(true);break;
+  case 'planDay':
+   var dday=el.getAttribute('data-date'),its=itemsOn(dday),dd=parseISO(dday);
+   showModal('<h2 style="text-transform:capitalize">'+JOURS[(dd.getDay()+6)%7]+' '+frDate(dday)+'</h2>'+(its.length?its.map(chip).join(''):'<p class="muted">Rien de prévu.</p>')+'<div style="margin-top:10px"><button class="btn" data-a="evNew" data-date="'+dday+'">+ Ajouter ce jour</button><button class="btn sec" data-a="close">Fermer</button></div>');
+   break;
+  case 'devisPlan':
+   var le=hasEvent(cur.id);
+   if(le){plan.ref=le.debut;plan.mode='semaine';location.hash='#planning';}
+   else{plan.ref=cur.dateChantier||today();plan.mode='semaine';pendingEv={id:'',titre:(cur.reference||'Chantier')+(cur.client.nom?', '+cur.client.nom:''),type:'chantier',debut:cur.dateChantier||today(),fin:'',heure:'',devisId:cur.id,machine:'',client:cur.client.nom,lieu:cur.lieu,note:''};location.hash='#planning';}
+   break;
+  case 'importTxt':var tx=$('impTxt').value.trim();if(tx)doImport(tx);break;
+ }
+});
+
+load();
+render(false);
+})();
+</script>
+</body>
+</html>
