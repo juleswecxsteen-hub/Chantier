@@ -25,6 +25,9 @@ a{color:#d9731a}
 .drawer a{display:block;color:#fff;text-decoration:none;font-size:17px;padding:15px 20px;border-left:4px solid transparent}
 .drawer a.on{background:#3a3a3a;border-left-color:#f28c28;color:#f28c28;font-weight:600}
 .drawer a .ic{display:inline-block;width:28px}
+.syncb{margin-left:auto;background:#3a3a3a;color:#cfe8d4;border:0;border-radius:16px;padding:6px 12px;font-size:13px;cursor:pointer;-webkit-appearance:none;font-family:inherit}
+.syncb.busy{color:#f8d36b}
+.syncb.err{color:#ffb3a8}
 .veil{position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:35;display:none}
 .veil.open{display:block}
 main{max-width:1020px;margin:0 auto;padding:14px}
@@ -175,6 +178,7 @@ textarea{min-height:64px;resize:vertical}
 <header class="top no-print">
  <button class="burger" id="burger" aria-label="Menu">☰</button>
  <a href="#home" class="brand">Chantiers</a>
+ <button id="syncBtn" class="syncb hidden" data-a="syncNow"></button>
 </header>
 <div class="veil no-print" id="veil"></div>
 <nav class="drawer no-print" id="drawer">
@@ -218,7 +222,7 @@ function $(id){return document.getElementById(id);}
 function toast(msg){var t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);},2200);}
 
 /* ---------- données ---------- */
-function defState(){return {version:1,settings:{noms:'',adresse1:'',adresse2:'',tel:'',mail:'',iban:'',bic:'',taux:'20',deplacement:'80',delaiCommande:'3',limites:'',prixKm:'0.6',condLoc:'Le matériel est remis en bon état de marche et doit être rendu propre, à la date prévue. Toute casse, perte ou usure anormale est à la charge du locataire. La caution est restituée au retour après contrôle.'},catalogue:[],devis:[],seq:{},events:[],machines:[],locations:[]};}
+function defState(){return {version:1,settings:{noms:'',adresse1:'',adresse2:'',tel:'',mail:'',iban:'',bic:'',taux:'20',deplacement:'80',delaiCommande:'3',limites:'',prixKm:'0.6',condLoc:'Le matériel est remis en bon état de marche et doit être rendu propre, à la date prévue. Toute casse, perte ou usure anormale est à la charge du locataire. La caution est restituée au retour après contrôle.'},catalogue:[],devis:[],seq:{},events:[],machines:[],locations:[],deleted:{},settingsModif:0};}
 function load(){
  try{var s=localStorage.getItem(KEY);state=s?JSON.parse(s):defState();}catch(e){state=defState();}
  var d=defState();
@@ -230,10 +234,12 @@ function load(){
  if(!state.events)state.events=[];
  if(!state.machines)state.machines=[];
  if(!state.locations)state.locations=[];
+ if(!state.deleted)state.deleted={};
 }
 function save(){
  try{localStorage.setItem(KEY,JSON.stringify(state));}
  catch(e){alert('Mémoire pleine ou indisponible. Fais une sauvegarde dans Réglages, puis supprime d’anciens devis ou signatures.');}
+ syncSoon();
 }
 function saveSoon(){clearTimeout(saveTimer);saveTimer=setTimeout(function(){saveTimer=null;save();},400);}
 function flush(){if(saveTimer){clearTimeout(saveTimer);saveTimer=null;save();}}
@@ -550,7 +556,7 @@ function evSave(id){
  var c=conflicts(e);
  if(c.length&&!confirm(e.machine+' est déjà prévue sur cette période. Enregistrer quand même ?'))return;
  if(isNew)state.events.push(e);
- if(e.devisId){var d=getDevis(e.devisId);if(d&&!d.dateChantier){d.dateChantier=e.debut;}}
+ if(e.devisId){var d=getDevis(e.devisId);if(d&&!d.dateChantier){d.dateChantier=e.debut;d.modifieLe=Date.now();}}
  save();closeModal();plan.ref=e.debut;render(true);toast('Planning enregistré');
 }
 
@@ -575,7 +581,8 @@ function viewReglages(){
  h+='<div class="card"><h2>Valeurs par défaut</h2><div class="grid"><div><label>Taux horaire main d’œuvre (€ HT)</label>'+numInp('s.taux',s.taux)+'</div><div><label>Forfait déplacement (€ HT)</label>'+numInp('s.deplacement',s.deplacement)+'</div><div><label>Commander les matériaux (jours avant chantier)</label>'+numInp('s.delaiCommande',s.delaiCommande)+'</div></div>';
  h+='<label>Limites de prestation par défaut</label><textarea data-b="s.limites">'+esc(s.limites)+'</textarea></div>';
  h+='<div class="card"><h2>Locations</h2><label>Prix du transport (€ HT par km)</label>'+numInp('s.prixKm',s.prixKm)+'<label>Conditions de location (sur l’état des lieux)</label><textarea data-b="s.condLoc">'+esc(s.condLoc)+'</textarea></div>';
- h+='<div class="card"><h2>Sauvegarde</h2><p class="small muted">Les données sont dans cet appareil ('+Math.round(used/1024)+' Ko utilisés sur environ 5000). Fais une sauvegarde régulièrement, et pour passer d’un appareil à l’autre en attendant la synchro.</p>';
+ h+=syncCard();
+ h+='<div class="card"><h2>Sauvegarde</h2><p class="small muted">Les données sont dans cet appareil ('+Math.round(used/1024)+' Ko utilisés sur environ 5000). Une sauvegarde de temps en temps ne fait pas de mal, même avec la synchro.</p>';
  h+='<button class="btn" data-a="export">Exporter un fichier</button><button class="btn sec" data-a="showExport">Copier les données</button>';
  h+='<label>Importer un fichier de sauvegarde</label><input type="file" id="impFile" accept=".json,application/json,text/plain">';
  h+='<label>Ou coller les données</label><textarea id="impTxt" placeholder="Colle ici le texte d’une sauvegarde"></textarea><button class="btn sec" data-a="importTxt">Importer le texte collé</button>';
@@ -596,7 +603,7 @@ function idb(cb){
 function phPut(id,data,cb){idb(function(db){if(!db){cb(false);return;}try{var tx=db.transaction('p','readwrite');tx.objectStore('p').put(data,id);tx.oncomplete=function(){cb(true);};tx.onerror=function(){cb(false);};}catch(e){cb(false);}});}
 function phGet(id,cb){idb(function(db){if(!db)return cb(null);try{var rq=db.transaction('p','readonly').objectStore('p').get(id);rq.onsuccess=function(){cb(rq.result||null);};rq.onerror=function(){cb(null);};}catch(e){cb(null);}});}
 function idbDel(id){if(!id)return;idb(function(db){if(!db)return;try{db.transaction('p','readwrite').objectStore('p').delete(id);}catch(e){}});}
-function hydrate(){var ims=document.querySelectorAll('img[data-ph]');for(var i=0;i<ims.length;i++)(function(im){phGet(im.getAttribute('data-ph'),function(d){if(d)im.src=d;});})(ims[i]);}
+function hydrate(){var ims=document.querySelectorAll('img[data-ph]');for(var i=0;i<ims.length;i++)(function(im){var id=im.getAttribute('data-ph');phGet(id,function(d){if(d)im.src=d;else fetchPhoto(id,function(d2){if(d2)im.src=d2;});});})(ims[i]);}
 function detectOrient(cb){
  if(autoOrient!==null)return cb(autoOrient);
  try{
@@ -823,6 +830,133 @@ function openQuick(){
 }
 function quickObj(){var d=Math.max(1,Math.round(num($('qD').value)||1)),t=today();return {machineId:$('qM').value,debut:t,fin:addDays(t,d-1),forfait:$('qW').checked?'weekend':'auto',nettoyage:$('qN').checked,km:$('qK').value,sortie:edlBlank(),retour:edlBlank()};}
 
+/* ---------- synchro Google ---------- */
+var SKEY='chantiers_sync',SYNC={busy:false,again:false,timer:null,err:'',last:0};
+function syncMeta(){try{return JSON.parse(localStorage.getItem(SKEY)||'{}');}catch(e){return {};}}
+function setSyncMeta(m){try{localStorage.setItem(SKEY,JSON.stringify(m));}catch(e){}}
+function syncCfg(){var m=syncMeta();return m.url&&m.key?{url:String(m.url).trim(),key:String(m.key).trim()}:null;}
+function markDel(id){if(!id)return;if(!state.deleted)state.deleted={};state.deleted[id]=Date.now();}
+function api(method,params,body,cb){
+ var c=syncCfg();if(!c)return cb('Synchro non configurée');
+ var url=c.url+(c.url.indexOf('?')<0?'?':'&')+'key='+encodeURIComponent(c.key),k;
+ for(k in params)url+='&'+k+'='+encodeURIComponent(params[k]);
+ var opt={redirect:'follow'};
+ if(method==='POST'){var b={key:c.key};for(k in body)b[k]=body[k];opt.method='POST';opt.body=JSON.stringify(b);url=c.url;}
+ var done=false,to=setTimeout(function(){if(!done){done=true;cb('Délai dépassé');}},45000);
+ fetch(url,opt).then(function(r){return r.json();}).then(function(j){
+  if(done)return;done=true;clearTimeout(to);
+  if(!j||!j.ok)return cb(j&&j.conflict?'conflict':j&&j.error==='cle'?'Clé incorrecte':'Erreur du script',j);
+  cb(null,j);
+ }).catch(function(){if(done)return;done=true;clearTimeout(to);cb('Pas de connexion ou adresse incorrecte');});
+}
+var SYNC_PARTS=['devis','events','machines','locations','catalogue','settings','seq','deleted'];
+function sameData(a,b){for(var i=0;i<SYNC_PARTS.length;i++){var k=SYNC_PARTS[i];if(JSON.stringify(a[k]||null)!==JSON.stringify(b[k]||null))return false;}return true;}
+function mergeState(L,R){
+ if(!R||!R.version)return L;
+ var del={},k;
+ [L.deleted||{},R.deleted||{}].forEach(function(d){for(k in d)if(!del[k]||d[k]>del[k])del[k]=d[k];});
+ function arr(name){
+  var map={},order=[];
+  function add(x){if(!x||!x.id)return;var t=del[x.id];if(t&&t>=(x.modifieLe||0))return;if(!map[x.id])order.push(x.id);var c=map[x.id];if(!c||(x.modifieLe||0)>(c.modifieLe||0))map[x.id]=x;}
+  (L[name]||[]).forEach(add);(R[name]||[]).forEach(add);
+  return order.map(function(i){return map[i];});
+ }
+ var o={version:1};
+ ['devis','events','machines','locations','catalogue'].forEach(function(n){o[n]=arr(n);});
+ function byNew(a,b){return (b.creeLe||0)-(a.creeLe||0);}
+ o.devis.sort(byNew);o.locations.sort(byNew);
+ o.deleted=del;
+ var ls=L.settingsModif||0,rs=R.settingsModif||0;
+ o.settings=rs>ls?R.settings:L.settings;o.settingsModif=Math.max(ls,rs);
+ o.seq={};[L.seq||{},R.seq||{}].forEach(function(s){for(k in s)o.seq[k]=Math.max(o.seq[k]||0,s[k]);});
+ return o;
+}
+function r2(n){return Math.round(num(n)*100)/100;}
+function summary(){
+ function v(x){return x==null?'':x;}
+ var D=[['N° devis','Date','Statut','Client','Référence','Lieu','Date chantier','Fournitures client','Prestation','Budget global','Échéance','Modifié le']];
+ state.devis.forEach(function(d){var t=totaux(d);D.push([v(d.numero),frDate(d.date),v(d.statut),v(d.client.nom),v(d.reference),v(d.lieu),frDate(d.dateChantier),r2(t.client),r2(t.facture),r2(t.global),frDate(d.echeance),stamp(d.modifieLe)]);});
+ var Lo=[['N° location','Machine','Client','Téléphone','Du','Au','Jours','Statut','Total HT','Caution','Caution rendue']];
+ state.locations.forEach(function(L){var c=locCalc(L);Lo.push([v(L.numero),mName(L.machineId),v(L.client.nom),v(L.client.tel),frDate(L.debut),frDate(locEnd(L)),c.days,v(L.statut),r2(c.total),r2(L.caution),L.cautionRendue?'oui':'non']);});
+ var M=[['Machine','Marque','Modèle','N° série','Compteur (h)','Jour','Week end','Semaine','Caution','Entretien à prévoir']];
+ state.machines.forEach(function(m){var t=m.tarifs||{};M.push([v(m.nom),v(m.marque),v(m.modele),v(m.serie),v(m.heures),v(t.jour),v(t.weekend),v(t.semaine),v(t.caution),entretienDu(m)?'oui':'']);});
+ var P=[['Du','Au','Type','Titre','Machine','Client','Lieu','Note']];
+ state.events.slice().sort(function(a,b){return a.debut<b.debut?-1:1;}).forEach(function(e){P.push([frDate(e.debut),frDate(evEnd(e)),TYPES[e.type]||v(e.type),v(e.titre),v(e.machine),v(e.client),v(e.lieu),v(e.note)]);});
+ var C=[['Désignation','Unité','PU HT','Fournisseur']];
+ state.catalogue.forEach(function(c){C.push([v(c.des),v(c.unite),v(c.pu),v(c.fournisseur)]);});
+ return {'Devis':D,'Locations':Lo,'Machines':M,'Planning':P,'Catalogue':C};
+}
+function setSyncIcon(){
+ var b=$('syncBtn');if(!b)return;
+ if(!syncCfg()){b.className='syncb hidden';return;}
+ b.className='syncb'+(SYNC.busy?' busy':SYNC.err?' err':'');
+ b.textContent=SYNC.busy?'⟳ Synchro':SYNC.err?'⚠ Hors ligne':'✓ À jour';
+}
+function sync(manual,tries){
+ if(!syncCfg()){if(manual)toast('Configure la synchro dans Réglages');return;}
+ if(SYNC.busy){SYNC.again=true;return;}
+ SYNC.busy=true;setSyncIcon();flush();
+ tries=tries||0;
+ function done(e){
+  SYNC.busy=false;SYNC.err=e||'';
+  if(!e){SYNC.last=Date.now();var m=syncMeta();m.last=SYNC.last;setSyncMeta(m);}
+  setSyncIcon();var sl=$('syncLast');if(sl)sl.textContent=syncLastTxt();
+  if(manual)toast(e?'Synchro impossible : '+e:'Synchronisé');
+  if(SYNC.again){SYNC.again=false;setTimeout(function(){sync(false);},800);}
+ }
+ api('GET',{action:'pull'},null,function(err,j){
+  if(err)return done(err);
+  var remote=null;try{remote=JSON.parse(j.data||'{}');}catch(e){}
+  var merged=mergeState(state,remote&&remote.version?remote:null);
+  if(!sameData(merged,state)){state=merged;save();render(true);}
+  api('POST',{},{action:'push',rev:j.rev,data:JSON.stringify(state),summary:summary()},function(err2){
+   if(err2==='conflict'&&tries<3){SYNC.busy=false;return sync(manual,tries+1);}
+   if(err2)return done(err2);
+   uploadPhotos(function(){done(null);});
+  });
+ });
+}
+function syncSoon(){if(!syncCfg()||SYNC.busy)return;clearTimeout(SYNC.timer);SYNC.timer=setTimeout(function(){sync(false);},4000);}
+function uploadPhotos(cb){
+ var m=syncMeta(),up=m.up||{},ids=allPhotoIds().filter(function(id){return !up[id];});
+ (function next(){
+  if(!ids.length){m=syncMeta();m.up=up;setSyncMeta(m);return cb();}
+  var id=ids.shift();
+  phGet(id,function(d){
+   if(!d)return next();
+   api('POST',{},{action:'photo',id:id,data:d},function(err){if(!err)up[id]=1;next();});
+  });
+ })();
+}
+function fetchPhoto(id,cb){
+ if(!syncCfg())return cb(null);
+ api('GET',{action:'photo',id:id},null,function(err,j){
+  if(err||!j.data)return cb(null);
+  phPut(id,j.data,function(){var m=syncMeta();m.up=m.up||{};m.up[id]=1;setSyncMeta(m);cb(j.data);});
+ });
+}
+function syncLastTxt(){var m=syncMeta();return m.last?'Dernière synchro : '+stamp(m.last):'Jamais synchronisé';}
+function syncCard(){
+ var m=syncMeta(),h='<div class="card"><h2>Synchronisation Google</h2>';
+ h+='<p class="small muted">Pour retrouver tes données sur l’iPad, le téléphone et le PC, avec une copie dans un Google Sheet. Le guide d’installation est juste en dessous.</p>';
+ h+='<label>Adresse du script (se termine par /exec)</label><input id="syU" value="'+esc(m.url||'')+'" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" autocapitalize="off">';
+ h+='<label>Mot de passe de synchro</label><input id="syK" value="'+esc(m.key||'')+'" autocomplete="off" autocapitalize="off">';
+ h+='<div style="margin-top:10px"><button class="btn" data-a="syncSave">Enregistrer et synchroniser</button>'+(m.url?'<button class="btn sec" data-a="syncOff">Désactiver</button>':'')+'</div>';
+ h+='<p class="small muted" id="syncLast">'+syncLastTxt()+'</p>';
+ h+='<details style="margin-top:8px"><summary style="font-weight:600;cursor:pointer">Guide d’installation (10 min, sur PC)</summary><ol class="small" style="padding-left:20px;line-height:1.6">';
+ h+='<li>Va sur <b>sheets.new</b> pour créer un Google Sheet, nomme le <b>Chantiers</b>.</li>';
+ h+='<li>Menu <b>Extensions</b>, puis <b>Apps Script</b>.</li>';
+ h+='<li>Efface tout le code affiché, puis colle le script (bouton ci dessous).</li>';
+ h+='<li>Sur la ligne <b>var KEY</b>, remplace CHANGE-MOI par un mot de passe à toi, puis enregistre (icône disquette).</li>';
+ h+='<li><b>Déployer</b>, <b>Nouveau déploiement</b>, roue dentée, <b>Application Web</b>. Exécuter en tant que : <b>Moi</b>. Qui a accès : <b>Tout le monde</b>. Puis Déployer.</li>';
+ h+='<li>Google demande d’autoriser : choisis ton compte, puis <b>Paramètres avancés</b>, <b>Accéder à …</b>, <b>Autoriser</b> (c’est ton propre script).</li>';
+ h+='<li>Copie l’<b>URL de l’application Web</b> et colle la ici avec ton mot de passe, puis Enregistrer.</li>';
+ h+='<li>Sur chaque appareil (iPad, téléphone, PC), mets la même adresse et le même mot de passe.</li></ol>';
+ h+='<button class="btn sec small" data-a="copyScript">Copier le script</button><textarea id="gsTxt" class="hidden" readonly style="min-height:120px"></textarea></details></div>';
+ return h;
+}
+var GS_CODE="// Synchro de l'appli Chantiers\n// 1. Remplace CHANGE-MOI par un mot de passe à toi (le même que dans l'appli, Réglages).\n// 2. Déployer > Nouveau déploiement > Application Web, Exécuter en tant que : Moi, Accès : Tout le monde.\nvar KEY = 'CHANGE-MOI';\n\nfunction out_(o) {\n  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);\n}\nfunction props_() { return PropertiesService.getScriptProperties(); }\n\nfunction dataFile_() {\n  var p = props_(), id = p.getProperty('dataFile');\n  if (id) { try { return DriveApp.getFileById(id); } catch (e) {} }\n  var f = DriveApp.createFile('chantiers-donnees.json', '{}', MimeType.PLAIN_TEXT);\n  p.setProperty('dataFile', f.getId());\n  return f;\n}\nfunction photoFolder_() {\n  var p = props_(), id = p.getProperty('photoFolder');\n  if (id) { try { return DriveApp.getFolderById(id); } catch (e) {} }\n  var f = DriveApp.createFolder('Chantiers photos');\n  p.setProperty('photoFolder', f.getId());\n  return f;\n}\nfunction rev_() { return Number(props_().getProperty('rev') || 0); }\n\nfunction doGet(e) {\n  var q = (e && e.parameter) || {};\n  if (q.key !== KEY) return out_({ ok: false, error: 'cle' });\n  if (q.action === 'pull') {\n    return out_({ ok: true, rev: rev_(), data: dataFile_().getBlob().getDataAsString() });\n  }\n  if (q.action === 'photo') {\n    var it = photoFolder_().getFilesByName(q.id + '.jpg');\n    if (!it.hasNext()) return out_({ ok: false, error: 'absente' });\n    var b = it.next().getBlob();\n    return out_({ ok: true, data: 'data:image/jpeg;base64,' + Utilities.base64Encode(b.getBytes()) });\n  }\n  return out_({ ok: true, pong: true, rev: rev_() });\n}\n\nfunction doPost(e) {\n  var b = JSON.parse(e.postData.contents);\n  if (b.key !== KEY) return out_({ ok: false, error: 'cle' });\n  var lock = LockService.getScriptLock();\n  lock.waitLock(25000);\n  try {\n    if (b.action === 'push') {\n      if (String(b.rev) !== String(rev_())) return out_({ ok: false, conflict: true, rev: rev_() });\n      dataFile_().setContent(b.data);\n      var r = rev_() + 1;\n      props_().setProperty('rev', String(r));\n      if (b.summary) { try { writeSheets_(b.summary); } catch (err) {} }\n      return out_({ ok: true, rev: r });\n    }\n    if (b.action === 'photo') {\n      var fo = photoFolder_();\n      if (!fo.getFilesByName(b.id + '.jpg').hasNext()) {\n        var bytes = Utilities.base64Decode(String(b.data).split(',')[1]);\n        fo.createFile(Utilities.newBlob(bytes, 'image/jpeg', b.id + '.jpg'));\n      }\n      return out_({ ok: true });\n    }\n  } finally {\n    lock.releaseLock();\n  }\n  return out_({ ok: false, error: 'action' });\n}\n\n// Copie lisible des données dans les onglets du Google Sheet\nfunction writeSheets_(sum) {\n  var ss = SpreadsheetApp.getActiveSpreadsheet();\n  if (!ss) return;\n  Object.keys(sum).forEach(function (name) {\n    var rows = sum[name];\n    var sh = ss.getSheetByName(name) || ss.insertSheet(name);\n    sh.clearContents();\n    if (rows.length && rows[0].length) {\n      sh.getRange(1, 1, rows.length, rows[0].length).setValues(rows);\n      sh.getRange(1, 1, 1, rows[0].length).setFontWeight('bold');\n      sh.setFrozenRows(1);\n    }\n  });\n}\n";
+
 /* ---------- rendu et routage ---------- */
 function render(keep){
  flush();
@@ -861,11 +995,12 @@ function setB(path,val){
  for(var i=0;i<parts.length-1;i++){o=o[parts[i]];if(o==null)return;}
  o[parts[parts.length-1]]=val;
  if(root==='d')touch();
- if(root==='c')refreshDatalists();
+ if(root==='c'){refreshDatalists();var ci=state.catalogue[+parts[0]];if(ci)ci.modifieLe=Date.now();}
+ if(root==='s')state.settingsModif=Date.now();
  if(root==='m'&&curM)curM.modifieLe=Date.now();
  if(root==='L'&&curL){
   curL.modifieLe=Date.now();
-  if(/^L\.(sortie|retour)\.heures$/.test(path)){var mm=getMachine(curL.machineId);if(mm&&num(val)>num(mm.heures))mm.heures=String(val);}
+  if(/^L\.(sortie|retour)\.heures$/.test(path)){var mm=getMachine(curL.machineId);if(mm&&num(val)>num(mm.heures)){mm.heures=String(val);mm.modifieLe=Date.now();}}
   var lp=$('locprix');if(lp)lp.innerHTML=prixTable(locCalc(curL));
  }
  updateTotals();saveSoon();
@@ -978,7 +1113,7 @@ function doImport(txt){
  state=o;load2();save();
  (function next(){if(!keys.length){location.hash='#home';render(false);toast('Sauvegarde importée');return;}var k=keys.shift();phPut(k,ph[k],function(){next();});})();
 }
-function load2(){var d=defState();for(var k in d.settings){if(state.settings[k]===undefined)state.settings[k]=d.settings[k];}if(!state.catalogue)state.catalogue=[];if(!state.seq)state.seq={};if(!state.events)state.events=[];if(!state.machines)state.machines=[];if(!state.locations)state.locations=[];}
+function load2(){var d=defState();for(var k in d.settings){if(state.settings[k]===undefined)state.settings[k]=d.settings[k];}if(!state.catalogue)state.catalogue=[];if(!state.seq)state.seq={};if(!state.events)state.events=[];if(!state.machines)state.machines=[];if(!state.locations)state.locations=[];if(!state.deleted)state.deleted={};}
 
 /* ---------- actions ---------- */
 document.addEventListener('click',function(e){
@@ -991,7 +1126,7 @@ document.addEventListener('click',function(e){
    var c=JSON.parse(JSON.stringify(cur));c.id=uid();c.numero=newNumero();c.indice='A';c.date=today();c.statut='brouillon';c.sigClient='';c.sigPresta='';c.sigDate='';c.echeance='';c.creeLe=Date.now();c.modifieLe=Date.now();
    c.postes.forEach(function(p){p.id=uid();p.commande=false;p.dateCommande='';});
    state.devis.unshift(c);save();location.hash='#devis-'+c.id;toast('Devis dupliqué');break;
-  case 'del':if(confirm('Supprimer définitivement le devis '+cur.numero+' ?')){state.events.forEach(function(ev){if(ev.devisId===cur.id)ev.devisId='';});state.devis.splice(state.devis.indexOf(cur),1);save();location.hash='#home';}break;
+  case 'del':if(confirm('Supprimer définitivement le devis '+cur.numero+' ?')){state.events.forEach(function(ev){if(ev.devisId===cur.id){ev.devisId='';ev.modifieLe=Date.now();}});markDel(cur.id);state.devis.splice(state.devis.indexOf(cur),1);save();location.hash='#home';}break;
   case 'addP':
    var p=newPoste(el.getAttribute('data-type'),el.getAttribute('data-type')==='client'?'Fournitures':'Prestation');
    if(p.type==='client'&&cur.dateChantier)p.dateCommande=addDays(cur.dateChantier,-num(s.delaiCommande));
@@ -1008,8 +1143,8 @@ document.addEventListener('click',function(e){
   case 'toCat':
    var l=cur.postes[i].lignes[j];if(!String(l.des).trim()){toast('Ligne sans désignation');break;}
    var ex=findCat(l.des);
-   if(ex){ex.unite=l.unite;ex.pu=l.pu;if(cur.postes[i].fournisseur)ex.fournisseur=cur.postes[i].fournisseur;toast('Prix mis à jour dans le catalogue');}
-   else{state.catalogue.push({id:uid(),des:String(l.des).trim(),unite:l.unite,pu:l.pu,fournisseur:cur.postes[i].fournisseur||''});toast('Ajouté au catalogue');}
+   if(ex){ex.unite=l.unite;ex.pu=l.pu;ex.modifieLe=Date.now();if(cur.postes[i].fournisseur)ex.fournisseur=cur.postes[i].fournisseur;toast('Prix mis à jour dans le catalogue');}
+   else{state.catalogue.push({id:uid(),des:String(l.des).trim(),unite:l.unite,pu:l.pu,fournisseur:cur.postes[i].fournisseur||'',modifieLe:Date.now()});toast('Ajouté au catalogue');}
    save();refreshDatalists();break;
   case 'sig':openSig(w);break;
   case 'clrSig':if(w==='sortie'||w==='retour'){curL[w].sig='';curL.modifieLe=Date.now();}else{if(w==='client')cur.sigClient='';else cur.sigPresta='';touch();}save();render(true);break;
@@ -1022,8 +1157,8 @@ document.addEventListener('click',function(e){
   case 'calc':openCalc();break;
   case 'calcAdd':calcAdd();break;
   case 'print':window.print();break;
-  case 'catAdd':state.catalogue.unshift({id:uid(),des:'',unite:'u',pu:'',fournisseur:''});save();render(true);break;
-  case 'catDel':state.catalogue.splice(i,1);save();render(true);break;
+  case 'catAdd':state.catalogue.unshift({id:uid(),des:'',unite:'u',pu:'',fournisseur:'',modifieLe:Date.now()});save();render(true);break;
+  case 'catDel':markDel(state.catalogue[i].id);state.catalogue.splice(i,1);save();render(true);break;
   case 'export':
    exportData(function(txt){
     try{var blob=new Blob([txt],{type:'application/json'}),u=URL.createObjectURL(blob),aa=document.createElement('a');aa.href=u;aa.download='sauvegarde-chantiers-'+today()+'.json';document.body.appendChild(aa);aa.click();setTimeout(function(){document.body.removeChild(aa);URL.revokeObjectURL(u);},1000);}
@@ -1040,7 +1175,7 @@ document.addEventListener('click',function(e){
   case 'evNew':openEv({id:'',titre:'',type:'chantier',debut:el.getAttribute('data-date')||plan.ref||today(),fin:'',heure:'',devisId:'',machine:'',client:'',lieu:'',note:''});break;
   case 'evEdit':closeModal();var ev=getEv(el.getAttribute('data-id'));if(ev)openEv(ev);break;
   case 'evSave':evSave(el.getAttribute('data-id'));break;
-  case 'evDel':if(confirm('Supprimer cet événement ?')){var ix=state.events.indexOf(getEv(el.getAttribute('data-id')));if(ix>=0)state.events.splice(ix,1);save();closeModal();render(true);}break;
+  case 'evDel':if(confirm('Supprimer cet événement ?')){var ix=state.events.indexOf(getEv(el.getAttribute('data-id')));if(ix>=0){markDel(state.events[ix].id);state.events.splice(ix,1);}save();closeModal();render(true);}break;
   case 'planPrev':case 'planNext':
    var dir=a==='planNext'?1:-1;
    if(plan.mode==='mois'){var pr=parseISO(plan.ref||today());plan.ref=iso(new Date(pr.getFullYear(),pr.getMonth()+dir,1));}
@@ -1059,17 +1194,17 @@ document.addEventListener('click',function(e){
    break;
   case 'mNew':var nm=newMachine();location.hash='#machine-'+nm.id;break;
   case 'mDel':
-   if(confirm('Supprimer la machine '+(curM.nom||'')+' ? Ses locations sont conservées.')){idbDel(curM.photo);state.machines.splice(state.machines.indexOf(curM),1);save();location.hash='#parc';}
+   if(confirm('Supprimer la machine '+(curM.nom||'')+' ? Ses locations sont conservées.')){idbDel(curM.photo);markDel(curM.id);state.machines.splice(state.machines.indexOf(curM),1);save();location.hash='#parc';}
    break;
   case 'enAdd':
    if(!$('enT').value.trim()&&!$('enH').value){toast('Indique l’intervention');break;}
    curM.entretien.push({id:uid(),date:$('enD').value||today(),heures:$('enH').value,type:$('enT').value.trim(),cout:$('enC').value});
    if(num($('enH').value)>num(curM.heures))curM.heures=$('enH').value;
    curM.modifieLe=Date.now();save();render(true);toast('Entretien noté');break;
-  case 'enDel':if(confirm('Supprimer cette ligne d’entretien ?')){curM.entretien.splice(i,1);save();render(true);}break;
+  case 'enDel':if(confirm('Supprimer cette ligne d’entretien ?')){curM.entretien.splice(i,1);curM.modifieLe=Date.now();save();render(true);}break;
   case 'locNew':var nl=newLoc(el.getAttribute('data-id')||(state.machines.length===1?state.machines[0].id:''));location.hash='#location-'+nl.id;break;
   case 'locDel':
-   if(confirm('Supprimer la location '+curL.numero+' et ses photos ?')){curL.sortie.photos.concat(curL.retour.photos).forEach(idbDel);state.locations.splice(state.locations.indexOf(curL),1);save();location.hash='#parc';}
+   if(confirm('Supprimer la location '+curL.numero+' et ses photos ?')){curL.sortie.photos.concat(curL.retour.photos).forEach(idbDel);markDel(curL.id);state.locations.splice(state.locations.indexOf(curL),1);save();location.hash='#parc';}
    break;
   case 'locPlan':plan.ref=curL.debut||today();plan.mode='semaine';location.hash='#planning';break;
   case 'phDel':
@@ -1080,12 +1215,28 @@ document.addEventListener('click',function(e){
   case 'quick':openQuick();break;
   case 'quickLoc':
    var q=quickObj(),ql=newLoc(q.machineId);ql.fin=q.fin;ql.forfait=q.forfait;ql.nettoyage=q.nettoyage;ql.km=q.km;save();closeModal();location.hash='#location-'+ql.id;break;
+  case 'syncNow':sync(true);break;
+  case 'syncSave':
+   var su=$('syU').value.trim(),sk=$('syK').value.trim();
+   if(su&&!/^https:\/\/script\.google(usercontent)?\.com\//.test(su)){toast('L’adresse doit commencer par https://script.google.com/');break;}
+   var sm=syncMeta();sm.url=su;sm.key=sk;setSyncMeta(sm);setSyncIcon();
+   if(su&&sk)sync(true);else toast('Adresse et mot de passe nécessaires');
+   break;
+  case 'syncOff':if(confirm('Désactiver la synchro sur cet appareil ? Tes données restent ici et sur Google.')){setSyncMeta({});SYNC.err='';setSyncIcon();render(true);}break;
+  case 'copyScript':
+   var gt=$('gsTxt');gt.value=GS_CODE;gt.classList.remove('hidden');gt.focus();gt.select();gt.setSelectionRange(0,gt.value.length);
+   var okg=false;try{okg=document.execCommand('copy');}catch(e3){}
+   toast(okg?'Script copié':'Texte sélectionné : touche Copier');break;
   case 'importTxt':var tx=$('impTxt').value.trim();if(tx)doImport(tx);break;
  }
 });
 
 load();
 render(false);
+setSyncIcon();
+setTimeout(function(){sync(false);},1200);
+window.addEventListener('online',function(){sync(false);});
+document.addEventListener('visibilitychange',function(){if(!document.hidden)sync(false);});
 try{if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js');}catch(e){}
 })();
 </script>
