@@ -191,6 +191,7 @@ textarea{min-height:64px;resize:vertical}
  <a href="#home"><span class="ic">🏠</span>Accueil</a>
  <a href="#devislist"><span class="ic">📄</span>Devis</a>
  <a href="#chantiers"><span class="ic">🏗️</span>Chantiers</a>
+ <a href="#clients"><span class="ic">👤</span>Clients</a>
  <a href="#planning"><span class="ic">📅</span>Planning</a>
  <a href="#parc"><span class="ic">🚜</span>Parc et locations</a>
  <a href="#catalogue"><span class="ic">📋</span>Catalogue</a>
@@ -229,7 +230,7 @@ function $(id){return document.getElementById(id);}
 function toast(msg){var t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);},2200);}
 
 /* ---------- données ---------- */
-function defState(){return {version:1,settings:{noms:'',adresse1:'',adresse2:'',tel:'',mail:'',iban:'',bic:'',taux:'20',deplacement:'80',delaiCommande:'3',limites:'',prixKm:'0.6',condLoc:'Le matériel est remis en bon état de marche et doit être rendu propre, à la date prévue. Toute casse, perte ou usure anormale est à la charge du locataire. La caution est restituée au retour après contrôle.'},catalogue:[],devis:[],seq:{},events:[],machines:[],locations:[],deleted:{},settingsModif:0};}
+function defState(){return {version:1,settings:{noms:'',adresse1:'',adresse2:'',tel:'',mail:'',iban:'',bic:'',taux:'20',deplacement:'80',delaiCommande:'3',limites:'',prixKm:'0.6',condLoc:'Le matériel est remis en bon état de marche et doit être rendu propre, à la date prévue. Toute casse, perte ou usure anormale est à la charge du locataire. La caution est restituée au retour après contrôle.'},catalogue:[],devis:[],seq:{},events:[],machines:[],locations:[],deleted:{},settingsModif:0,clients:[]};}
 function load(){
  try{var s=localStorage.getItem(KEY);state=s?JSON.parse(s):defState();}catch(e){state=defState();}
  var d=defState();
@@ -242,6 +243,7 @@ function load(){
  if(!state.machines)state.machines=[];
  if(!state.locations)state.locations=[];
  if(!state.deleted)state.deleted={};
+ if(!state.clients)state.clients=[];
 }
 function save(){
  try{localStorage.setItem(KEY,JSON.stringify(state));}
@@ -450,7 +452,7 @@ function viewDevis(d){
  h+='<div><label>Date du chantier</label><input type="date" data-b="d.dateChantier" value="'+esc(d.dateChantier)+'"></div>';
  h+='<div><label>Échéance de paiement (rappel)</label><input type="date" data-b="d.echeance" value="'+esc(d.echeance)+'"></div></div></div>';
 
- h+='<div class="card"><h2>Client</h2><div class="grid"><div class="w2"><label>Nom</label>'+inp('d.client.nom',d.client.nom,'M. Dupont Jean')+'</div><div><label>Téléphone</label>'+inp('d.client.tel',d.client.tel,'',' type="tel"')+'</div></div>';
+ h+='<div class="card"><h2>Client</h2>'+clientPicker('d',d)+'<div class="grid"><div class="w2"><label>Nom</label>'+inp('d.client.nom',d.client.nom,'M. Dupont Jean')+'</div><div><label>Téléphone</label>'+inp('d.client.tel',d.client.tel,'',' type="tel"')+'</div></div>';
  h+='<div class="grid"><div class="w2"><label>Adresse</label>'+inp('d.client.adresse',d.client.adresse)+'</div><div><label>CP et ville</label>'+inp('d.client.ville',d.client.ville)+'</div></div>';
  h+='<label>Mail</label>'+inp('d.client.mail',d.client.mail,'',' type="email"')+'</div>';
 
@@ -828,7 +830,7 @@ function viewLoc(L){
  h+='<div class="grid"><div><label>Du</label><input type="date" data-b="L.debut" data-re="1" value="'+esc(L.debut)+'"></div><div><label>Au</label><input type="date" data-b="L.fin" data-re="1" value="'+esc(L.fin)+'"></div><div><label>Tarif</label><select data-b="L.forfait" data-re="1"><option value="auto"'+sel(L.forfait,'auto')+'>Jour / semaine (auto)</option><option value="weekend"'+sel(L.forfait,'weekend')+'>Forfait week end</option></select></div></div>';
  if(cf.length)h+='<div class="warn">Attention, machine déjà prévue : '+cf.map(esc).join(' ; ')+'</div>';
  h+='</div>';
- h+='<div class="card"><h2>Client</h2><div class="grid"><div class="w2"><label>Nom</label>'+inp('L.client.nom',L.client.nom)+'</div><div><label>Téléphone</label>'+inp('L.client.tel',L.client.tel,'',' type="tel"')+'</div></div><label>Adresse</label>'+inp('L.client.adresse',L.client.adresse)+'</div>';
+ h+='<div class="card"><h2>Client</h2>'+clientPicker('L',L)+'<div class="grid"><div class="w2"><label>Nom</label>'+inp('L.client.nom',L.client.nom)+'</div><div><label>Téléphone</label>'+inp('L.client.tel',L.client.tel,'',' type="tel"')+'</div></div><label>Adresse</label>'+inp('L.client.adresse',L.client.adresse)+'</div>';
  h+=edlBlock('sortie',L.sortie,'Départ')+edlBlock('retour',L.retour,'Retour');
  h+='<div class="card"><h2>Prix</h2><label class="chk"><input type="checkbox" data-b="L.nettoyage" data-re="1"'+(L.nettoyage?' checked':'')+'>Facturer le nettoyage</label>';
  h+='<div class="grid"><div><label>Transport (km aller retour)</label>'+numInp('L.km',L.km)+'</div><div><label>Carburant (€)</label>'+numInp('L.carburantEur',L.carburantEur)+'</div><div><label>Remise (€)</label>'+numInp('L.remise',L.remise)+'</div></div>';
@@ -888,7 +890,7 @@ function api(method,params,body,cb){
   cb(null,j);
  }).catch(function(){if(done)return;done=true;clearTimeout(to);cb('Pas de connexion ou adresse incorrecte');});
 }
-var SYNC_PARTS=['devis','events','machines','locations','catalogue','settings','seq','deleted'];
+var SYNC_PARTS=['devis','events','machines','locations','catalogue','clients','settings','seq','deleted'];
 function sameData(a,b){for(var i=0;i<SYNC_PARTS.length;i++){var k=SYNC_PARTS[i];if(JSON.stringify(a[k]||null)!==JSON.stringify(b[k]||null))return false;}return true;}
 function mergeState(L,R){
  if(!R||!R.version)return L;
@@ -901,10 +903,11 @@ function mergeState(L,R){
   return order.map(function(i){return map[i];});
  }
  var o={version:1};
- ['devis','events','machines','locations','catalogue'].forEach(function(n){o[n]=arr(n);});
+ ['devis','events','machines','locations','catalogue','clients'].forEach(function(n){o[n]=arr(n);});
  function byNew(a,b){return (b.creeLe||0)-(a.creeLe||0);}
  o.devis.sort(byNew);o.locations.sort(byNew);
  o.deleted=del;
+ o.clientsMigrated=!!(L.clientsMigrated||R.clientsMigrated);
  var ls=L.settingsModif||0,rs=R.settingsModif||0;
  o.settings=rs>ls?R.settings:L.settings;o.settingsModif=Math.max(ls,rs);
  o.seq={};[L.seq||{},R.seq||{}].forEach(function(s){for(k in s)o.seq[k]=Math.max(o.seq[k]||0,s[k]);});
@@ -923,7 +926,9 @@ function summary(){
  state.events.slice().sort(function(a,b){return a.debut<b.debut?-1:1;}).forEach(function(e){P.push([frDate(e.debut),frDate(evEnd(e)),TYPES[e.type]||v(e.type),v(e.titre),v(e.machine),v(e.client),v(e.lieu),v(e.note)]);});
  var C=[['Désignation','Unité','PU HT','Fournisseur']];
  state.catalogue.forEach(function(c){C.push([v(c.des),v(c.unite),v(c.pu),v(c.fournisseur)]);});
- return {'Devis':D,'Locations':Lo,'Machines':M,'Planning':P,'Catalogue':C};
+ var K=[['Client','Type','Téléphone','Mail','Adresse','Ville','Nb devis','Nb locations','Facturé']];
+ state.clients.forEach(function(c){K.push([v(c.nom),v(c.type),v(c.tel),v(c.mail),v(c.adresse),v(c.ville),clientDevis(c).length,clientLocs(c).length,r2(clientCA(c))]);});
+ return {'Clients':K,'Devis':D,'Locations':Lo,'Machines':M,'Planning':P,'Catalogue':C};
 }
 function setSyncIcon(){
  var b=$('syncBtn');if(!b)return;
@@ -1079,12 +1084,92 @@ function viewRapport(d){
  return h+'</div></div>';
 }
 
+/* ---------- clients ---------- */
+var curC=null,clF={q:''};
+var CTYPES=['particulier','agriculteur','artisan','entreprise','collectivité'];
+function getClient(id){for(var i=0;i<state.clients.length;i++)if(state.clients[i].id===id)return state.clients[i];return null;}
+function newClient(o,id){
+ o=o||{};
+ var c={id:id||uid(),nom:o.nom||'',type:o.type||'particulier',tel:o.tel||'',mail:o.mail||'',adresse:o.adresse||'',ville:o.ville||'',note:'',creeLe:Date.now(),modifieLe:Date.now()};
+ state.clients.push(c);return c;
+}
+function clientsSorted(){return state.clients.slice().sort(function(a,b){return String(a.nom).toLowerCase()<String(b.nom).toLowerCase()?-1:1;});}
+function sameName(a,b){return String(a||'').trim().toLowerCase()===String(b||'').trim().toLowerCase()&&String(a||'').trim()!=='';}
+function clientDevis(c){return state.devis.filter(function(d){return d.clientId===c.id||(!d.clientId&&sameName(d.client.nom,c.nom));});}
+function clientLocs(c){return state.locations.filter(function(L){return L.clientId===c.id||(!L.clientId&&sameName(L.client.nom,c.nom));});}
+function clientCA(c){
+ var t=0;
+ clientDevis(c).forEach(function(d){if(d.statut==='terminé'||d.statut==='payé')t+=totaux(d).facture;});
+ clientLocs(c).forEach(function(L){if(L.statut==='rendue'||L.statut==='payée')t+=locCalc(L).total;});
+ return t;
+}
+function clSlug(n){return 'cl_'+String(n||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'_');}
+function migrateClients(){
+ if(state.clientsMigrated)return;
+ state.clientsMigrated=true;
+ state.devis.forEach(function(d){
+  if(d.clientId||!String(d.client.nom||'').trim())return;
+  var c=null;state.clients.forEach(function(x){if(sameName(x.nom,d.client.nom))c=x;});
+  if(!c)c=newClient(d.client,clSlug(d.client.nom));
+  d.clientId=c.id;
+ });
+ state.locations.forEach(function(L){
+  if(L.clientId||!String(L.client.nom||'').trim())return;
+  var c=null;state.clients.forEach(function(x){if(sameName(x.nom,L.client.nom))c=x;});
+  if(!c)c=newClient({nom:L.client.nom,tel:L.client.tel,adresse:L.client.adresse},clSlug(L.client.nom));
+  L.clientId=c.id;
+ });
+}
+function clientPicker(kind,obj){
+ var h='<label>Client enregistré</label><div class="grid"><div class="w2"><select data-pick="'+kind+'"><option value="">'+(state.clients.length?'Choisir un client…':'Aucun client enregistré')+'</option>';
+ clientsSorted().forEach(function(c){h+='<option value="'+c.id+'"'+sel(obj.clientId||'',c.id)+'>'+esc(c.nom||'Sans nom')+(c.ville?' ('+esc(c.ville)+')':'')+'</option>';});
+ h+='</select></div><div>';
+ if(obj.clientId&&getClient(obj.clientId))h+='<a class="btn sec small" href="#client-'+obj.clientId+'" style="margin-top:4px">Voir la fiche</a>';
+ else h+='<button class="btn sec small" data-a="clientSave" data-w="'+kind+'" style="margin-top:4px">Enregistrer comme nouveau client</button>';
+ return h+'</div></div>';
+}
+function applyClient(kind,c){
+ var o=kind==='L'?curL:cur;if(!o)return;
+ if(!c){o.clientId='';}
+ else if(kind==='L'){o.clientId=c.id;o.client={nom:c.nom,tel:c.tel,adresse:[c.adresse,c.ville].filter(function(x){return x;}).join(', ')};}
+ else{o.clientId=c.id;o.client={nom:c.nom,adresse:c.adresse,ville:c.ville,tel:c.tel,mail:c.mail};}
+ o.modifieLe=Date.now();save();render(true);
+}
+function clientRow(c){
+ var nd=clientDevis(c).length,nl=clientLocs(c).length;
+ return '<a class="row" href="#client-'+c.id+'"><div class="main"><b>'+esc(c.nom||'Sans nom')+'</b><span class="small muted">'+esc(c.type)+(c.ville?', '+esc(c.ville):'')+(c.tel?', '+esc(c.tel):'')+'</span></div><div class="side"><div class="small">'+nd+' devis, '+nl+' location'+(nl>1?'s':'')+'</div><div class="small muted">'+eur(clientCA(c))+' facturé</div></div></a>';
+}
+function clientListHtml(){
+ var q=clF.q.trim().toLowerCase(),l=clientsSorted().filter(function(c){return !q||[c.nom,c.ville,c.tel,c.mail,c.type].join(' ').toLowerCase().indexOf(q)>=0;});
+ if(!l.length)return '<p class="muted">'+(state.clients.length?'Aucun client ne correspond.':'Aucun client pour le moment.')+'</p>';
+ return l.map(clientRow).join('');
+}
+function viewClients(){
+ var h='<div class="card"><h1>Clients</h1><button class="btn" data-a="clNew">+ Nouveau client</button>';
+ h+='<label>Rechercher</label><input id="clQ" value="'+esc(clF.q)+'" placeholder="Nom, ville, téléphone…" autocomplete="off"></div>';
+ return h+'<div class="card" id="clList">'+clientListHtml()+'</div>';
+}
+function viewClient(c){
+ var ds=clientDevis(c),ls=clientLocs(c),h='';
+ h+='<div class="card"><a class="btn sec small" href="#clients">← Clients</a><h1>'+esc(c.nom||'Nouveau client')+'</h1>';
+ h+='<button class="btn" data-a="clDevis">+ Devis pour ce client</button><button class="btn dark" data-a="clLoc">+ Location pour ce client</button><button class="btn danger" data-a="clDel">Supprimer</button>';
+ if(c.tel)h+='<div style="margin-top:6px"><a href="tel:'+esc(String(c.tel).replace(/\s/g,''))+'">📞 '+esc(c.tel)+'</a>'+(c.mail?'&nbsp;&nbsp;&nbsp;✉️ <a href="mailto:'+esc(c.mail)+'">'+esc(c.mail)+'</a>':'')+'</div>';
+ h+='</div><div class="card"><h2>Fiche</h2><div class="grid"><div class="w2"><label>Nom</label>'+inp('k.nom',c.nom,'M. Dupont Jean, SARL…')+'</div><div><label>Type</label><select data-b="k.type">'+CTYPES.map(function(t){return '<option'+sel(c.type,t)+'>'+t+'</option>';}).join('')+'</select></div></div>';
+ h+='<div class="grid"><div><label>Téléphone</label>'+inp('k.tel',c.tel,'',' type="tel"')+'</div><div class="w2"><label>Mail</label>'+inp('k.mail',c.mail,'',' type="email"')+'</div></div>';
+ h+='<div class="grid"><div class="w2"><label>Adresse</label>'+inp('k.adresse',c.adresse)+'</div><div><label>CP et ville</label>'+inp('k.ville',c.ville)+'</div></div>';
+ h+='<label>Notes</label><textarea data-b="k.note" placeholder="Accès au chantier, préférences, contact sur place…">'+esc(c.note)+'</textarea></div>';
+ h+='<div class="card"><h2>Historique</h2><p class="small muted">'+eur(clientCA(c))+' facturé (chantiers terminés ou payés et locations rendues ou payées)</p>';
+ h+='<h2 style="margin-top:12px">Devis et chantiers ('+ds.length+')</h2>'+(ds.length?ds.map(devisRow).join(''):'<p class="muted">Aucun.</p>');
+ h+='<h2 style="margin-top:12px">Locations ('+ls.length+')</h2>'+(ls.length?ls.map(locRow).join(''):'<p class="muted">Aucune.</p>')+'</div>';
+ return h;
+}
+
 /* ---------- rendu et routage ---------- */
 function render(keep){
  flush();
  var y=window.pageYOffset||0,h=(location.hash||'#home').slice(1),app=$('app');
  refreshDatalists();
- curM=null;curL=null;
+ curM=null;curL=null;curC=null;
  if(h.indexOf('devis-')===0){cur=getDevis(h.slice(6));if(!cur){location.hash='#home';return;}app.innerHTML=viewDevis(cur);}
  else if(h.indexOf('apercu-')===0){cur=getDevis(h.slice(7));if(!cur){location.hash='#home';return;}app.innerHTML=viewApercu(cur);}
  else if(h==='planning'){cur=null;app.innerHTML=viewPlanning();if(pendingEv){var pe=pendingEv;pendingEv=null;openEv(pe);}}
@@ -1092,6 +1177,8 @@ function render(keep){
  else if(h==='chantiers'){cur=null;app.innerHTML=viewChantiers();}
  else if(h.indexOf('suivi-')===0){cur=getDevis(h.slice(6));if(!cur){location.hash='#chantiers';return;}app.innerHTML=viewSuivi(cur);}
  else if(h.indexOf('rapport-')===0){cur=getDevis(h.slice(8));if(!cur){location.hash='#chantiers';return;}app.innerHTML=viewRapport(cur);}
+ else if(h==='clients'){cur=null;app.innerHTML=viewClients();$('clQ').addEventListener('input',function(){clF.q=this.value;$('clList').innerHTML=clientListHtml();});}
+ else if(h.indexOf('client-')===0){cur=null;curC=getClient(h.slice(7));if(!curC){location.hash='#clients';return;}app.innerHTML=viewClient(curC);}
  else if(h==='parc'){cur=null;app.innerHTML=viewParc();}
  else if(h.indexOf('machine-')===0){cur=null;curM=getMachine(h.slice(8));if(!curM){location.hash='#parc';return;}app.innerHTML=viewMachine(curM);}
  else if(h.indexOf('location-')===0){cur=null;curL=getLoc(h.slice(9));if(!curL){location.hash='#parc';return;}app.innerHTML=viewLoc(curL);}
@@ -1116,7 +1203,7 @@ function updateTotals(){
 }
 function setB(path,val){
  var parts=path.split('.'),root=parts.shift(),o;
- if(root==='d')o=cur;else if(root==='s')o=state.settings;else if(root==='c')o=state.catalogue;else if(root==='m')o=curM;else if(root==='L')o=curL;
+ if(root==='d')o=cur;else if(root==='s')o=state.settings;else if(root==='c')o=state.catalogue;else if(root==='m')o=curM;else if(root==='L')o=curL;else if(root==='k')o=curC;
  if(!o)return;
  for(var i=0;i<parts.length-1;i++){o=o[parts[i]];if(o==null)return;}
  o[parts[parts.length-1]]=val;
@@ -1124,6 +1211,7 @@ function setB(path,val){
  if(root==='c'){refreshDatalists();var ci=state.catalogue[+parts[0]];if(ci)ci.modifieLe=Date.now();}
  if(root==='s')state.settingsModif=Date.now();
  if(root==='m'&&curM)curM.modifieLe=Date.now();
+ if(root==='k'&&curC)curC.modifieLe=Date.now();
  if(root==='L'&&curL){
   curL.modifieLe=Date.now();
   if(/^L\.(sortie|retour)\.heures$/.test(path)){var mm=getMachine(curL.machineId);if(mm&&num(val)>num(mm.heures)){mm.heures=String(val);mm.modifieLe=Date.now();}}
@@ -1143,6 +1231,8 @@ document.addEventListener('input',function(e){
 });
 document.addEventListener('change',function(e){
  var el=e.target,b=el.getAttribute&&el.getAttribute('data-b');
+ var pk=el.getAttribute&&el.getAttribute('data-pick');
+ if(pk){applyClient(pk,getClient(el.value));return;}
  var pa=el.getAttribute&&el.getAttribute('data-ph-add');
  if(pa){addPhotos(pa,el.files);return;}
  if(!b)return;
@@ -1165,7 +1255,7 @@ $('burger').addEventListener('click',function(){if($('drawer').classList.contain
 $('veil').addEventListener('click',closeMenu);
 $('drawer').addEventListener('click',function(e){if(e.target.closest&&e.target.closest('a'))closeMenu();});
 function markMenu(h){
- var sec=h.indexOf('devis-')===0||h.indexOf('apercu-')===0?'devislist':(h.indexOf('suivi-')===0||h.indexOf('rapport-')===0)?'chantiers':(h.indexOf('machine-')===0||h.indexOf('location-')===0||h.indexOf('edl-')===0)?'parc':h;
+ var sec=h.indexOf('devis-')===0||h.indexOf('apercu-')===0?'devislist':(h.indexOf('suivi-')===0||h.indexOf('rapport-')===0)?'chantiers':h.indexOf('client-')===0?'clients':(h.indexOf('machine-')===0||h.indexOf('location-')===0||h.indexOf('edl-')===0)?'parc':h;
  var as=$('drawer').querySelectorAll('a');
  for(var i=0;i<as.length;i++){var t=as[i].getAttribute('href').slice(1);if(t===sec||(sec===''&&t==='home'))as[i].classList.add('on');else as[i].classList.remove('on');}
 }
@@ -1188,32 +1278,69 @@ function openSig(who){
  c.addEventListener('mousedown',start,false);c.addEventListener('mousemove',move,false);c.addEventListener('mouseup',end,false);c.addEventListener('mouseleave',end,false);
 }
 
-/* calcul d'ouvrage : dalle */
+/* calculs d'ouvrage */
+var OUV={
+ dalle:{t:'Dalle béton armé',f:[['L','Longueur (m)','4'],['W','Largeur (m)','4'],['E','Épaisseur (cm)','20'],['P','Marge de perte béton (%)','10'],['N','Nappes de treillis (1 ou 2)','2'],['R','Recouvrement treillis (cm)','20'],['PL','Panneau treillis longueur (m)','4'],['PW','Panneau treillis largeur (m)','2.4'],['H','Hauteur planche coffrage (cm)','20']],
+  c:function(v){
+   var L=v.L,W=v.W,E=v.E/100,R=v.R/100,PL=v.PL||4,PW=v.PW||2.4,H=(v.H||20)/100,N=v.N||1;
+   function nb(len,pan){if(len<=0)return 0;if(len<=pan)return 1;if(pan-R<=0)return 0;return Math.ceil((len-R)/(pan-R)-1e-9);}
+   var theo=L*W*E;
+   return {info:[['Surface',fq(r1(L*W))+' m²'],['Volume théorique',fq(r2c(theo))+' m³']],items:[
+    {k:'béton',des:'Béton',qte:up1(theo*(1+v.P/100)),unite:'m³'},
+    {k:'coffrage',des:'Planche de coffrage',qte:up1(2*(L+W)*Math.max(1,Math.ceil(E/H-1e-9))),unite:'ML'},
+    {k:'treillis',des:'Treillis soudé',qte:Math.min(nb(L,PL)*nb(W,PW),nb(L,PW)*nb(W,PL))*N,unite:'panneau'},
+    {k:'polyane',des:'Film polyane',qte:up1(L*W*1.15),unite:'m²'}]};
+  }},
+ semelle:{t:'Semelle filante',f:[['L','Longueur totale (m)','20'],['W','Largeur (cm)','50'],['E','Hauteur (cm)','30'],['P','Marge de perte béton (%)','10'],['C','Longueur d’une cage d’armature (m)','6'],['RC','Recouvrement des cages (cm)','50'],['K','Coffrer les deux côtés (1 oui, 0 non)','0']],
+  c:function(v){
+   var L=v.L,theo=L*v.W/100*v.E/100,lc=v.C||6,rc=v.RC/100,cages=L<=0?0:L<=lc?1:Math.ceil((L-rc)/(lc-rc)-1e-9);
+   var it=[{k:'béton',des:'Béton',qte:up1(theo*(1+v.P/100)),unite:'m³'},{k:'semelle',des:'Cage d’armature semelle filante',qte:cages,unite:'u'}];
+   if(v.K)it.push({k:'coffrage',des:'Planche de coffrage',qte:up1(2*L*Math.max(1,Math.ceil(v.E/20-1e-9))),unite:'ML'});
+   return {info:[['Volume théorique',fq(r2c(theo))+' m³']],items:it};
+  }},
+ plots:{t:'Plots / massifs béton',f:[['N','Nombre de plots','4'],['A','Longueur (cm)','50'],['B','Largeur (cm)','50'],['E','Profondeur (cm)','60'],['P','Marge de perte béton (%)','10']],
+  c:function(v){var theo=v.N*v.A/100*v.B/100*v.E/100;return {info:[['Volume théorique',fq(r2c(theo))+' m³']],items:[{k:'béton',des:'Béton',qte:up1(theo*(1+v.P/100)),unite:'m³'}]};}},
+ mur:{t:'Mur en blocs béton',f:[['L','Longueur (m)','10'],['H','Hauteur (m)','2'],['O','Ouvertures à déduire (m²)','0'],['BL','Longueur d’un bloc (cm)','50'],['BH','Hauteur d’un bloc (cm)','20'],['P','Marge de casse (%)','5'],['S','Blocs par sac de mortier','12'],['CH','Rangs de chaînage horizontal','1']],
+  c:function(v){
+   var surf=Math.max(0,v.L*v.H-v.O),parM2=(v.BL&&v.BH)?10000/(v.BL*v.BH):10,blocs=Math.ceil(surf*parM2*(1+v.P/100)-1e-9);
+   var it=[{k:'bloc',des:'Bloc béton',qte:blocs,unite:'u'},{k:'mortier',des:'Mortier (sac)',qte:v.S?Math.ceil(blocs/v.S-1e-9):0,unite:'sac'}];
+   if(v.CH)it.push({k:'chaînage',des:'Chaînage horizontal',qte:up1(v.L*v.CH),unite:'ML'});
+   return {info:[['Surface de mur',fq(r1(surf))+' m²'],['Blocs par m²',fq(r1(parM2))]],items:it};
+  }},
+ terrassement:{t:'Terrassement / déblai',f:[['L','Longueur (m)','10'],['W','Largeur (m)','5'],['E','Profondeur (cm)','40'],['F','Foisonnement (%)','25'],['T','Capacité d’un camion (m³)','10']],
+  c:function(v){
+   var place=v.L*v.W*v.E/100,fois=place*(1+v.F/100),rot=v.T?Math.ceil(fois/v.T-1e-9):0;
+   return {info:[['Volume en place',fq(r2c(place))+' m³'],['Volume foisonné',fq(r2c(fois))+' m³']],items:[{k:'terrassement',des:'Terrassement en déblai',qte:up1(place),unite:'m³'},{k:'évacuation',des:'Évacuation des terres',qte:up1(fois),unite:'m³'},{k:'camion',des:'Rotation camion',qte:rot,unite:'u'}]};
+  }},
+ enrobe:{t:'Enrobé',f:[['S','Surface (m²)','50'],['E','Épaisseur (cm)','5'],['D','Densité (t/m³)','2.35'],['P','Marge de perte (%)','5']],
+  c:function(v){var t=v.S*v.E/100*v.D*(1+v.P/100);return {info:[['Volume',fq(r2c(v.S*v.E/100))+' m³']],items:[{k:'enrobé',des:'Enrobé',qte:up1(t),unite:'t'}]};}},
+ granulats:{t:'Granulats (grave, sable, gravier)',f:[['S','Surface (m²)','50'],['E','Épaisseur (cm)','15'],['D','Densité (t/m³)','1.8'],['P','Marge de compactage et perte (%)','15']],
+  c:function(v){var m3=v.S*v.E/100*(1+v.P/100);return {info:[['Volume avec marge',fq(r2c(m3))+' m³']],items:[{k:'grave',des:'Granulats',qte:up1(m3*v.D),unite:'t'}]};}}
+};
+var calcType='dalle';
+function r1(n){return Math.round(n*10)/10;}
+function r2c(n){return Math.round(n*100)/100;}
+function up1(n){return Math.ceil(n*10-1e-9)/10;}
 function openCalc(){
  var opts='<option value="new">Nouveau poste "Matériaux" (payé client)</option>';
  cur.postes.forEach(function(p,i){opts+='<option value="'+i+'">Poste '+(i+1)+' : '+esc(p.titre||'sans titre')+'</option>';});
- function f(id,lab,v){return '<div><label>'+lab+'</label><input id="'+id+'" inputmode="decimal" value="'+v+'"></div>';}
- showModal('<h2>Calcul d’ouvrage : dalle béton armé</h2><div id="calcf"><div class="grid">'+f('cL','Longueur (m)','4')+f('cW','Largeur (m)','4')+f('cE','Épaisseur (cm)','20')+'</div>'+
- '<div class="grid">'+f('cP','Marge de perte béton (%)','10')+'<div><label>Nappes de treillis</label><select id="cN"><option value="1">1 nappe</option><option value="2" selected>2 nappes</option></select></div>'+f('cR','Recouvrement treillis (cm)','20')+'</div>'+
- '<div class="grid">'+f('cPL','Panneau treillis longueur (m)','4')+f('cPW','Panneau treillis largeur (m)','2.4')+f('cH','Hauteur planche coffrage (cm)','20')+'</div>'+
- '<div class="calcres" id="calcres"></div><label>Ajouter dans</label><select id="cT">'+opts+'</select></div>'+
- '<p class="small muted">Quantités indicatives, à ajuster (massifs, chutes, distanciers…). Les prix sont repris du catalogue si un article correspond.</p>'+
+ var types=Object.keys(OUV).map(function(k){return '<option value="'+k+'"'+sel(calcType,k)+'>'+OUV[k].t+'</option>';}).join('');
+ showModal('<h2>Calcul d’ouvrage</h2><label>Ouvrage</label><select id="cTy">'+types+'</select><div id="calcf"></div><div class="calcres" id="calcres"></div><label>Ajouter dans</label><select id="cT">'+opts+'</select>'+
+ '<p class="small muted">Quantités indicatives : tous les coefficients sont modifiables. Les prix sont repris du catalogue quand un article correspond.</p>'+
  '<button class="btn" data-a="calcAdd">Ajouter au devis</button><button class="btn sec" data-a="close">Fermer</button>');
- $('calcf').addEventListener('input',calcShow);$('calcf').addEventListener('change',calcShow);
- calcShow();
+ function fields(){
+  var o=OUV[calcType];
+  $('calcf').innerHTML='<div class="grid">'+o.f.map(function(x){return '<div><label>'+x[1]+'</label><input id="cf_'+x[0]+'" inputmode="decimal" value="'+x[2]+'"></div>';}).join('')+'</div>';
+  calcShow();
+ }
+ $('cTy').addEventListener('change',function(){calcType=this.value;fields();});
+ $('calcf').addEventListener('input',calcShow);
+ fields();
 }
-function calcRes(){
- function v(id){return num($(id).value);}
- var L=v('cL'),W=v('cW'),E=v('cE')/100,P=v('cP')/100,N=v('cN')||1,R=v('cR')/100,PL=v('cPL')||4,PW=v('cPW')||2.4,H=(v('cH')||20)/100;
- function nb(len,pan){if(len<=0)return 0;if(len<=pan)return 1;if(pan-R<=0)return 0;return Math.ceil((len-R)/(pan-R)-1e-9);}
- var theo=L*W*E,beton=Math.ceil(theo*(1+P)*10)/10;
- var rangs=Math.max(1,Math.ceil(E/H-1e-9)),coff=Math.ceil(2*(L+W)*rangs*10)/10;
- var pan=Math.min(nb(L,PL)*nb(W,PW),nb(L,PW)*nb(W,PL))*N;
- var film=Math.ceil(L*W*1.15*10)/10;
- return {theo:theo,items:[{k:'béton',des:'Béton',qte:beton,unite:'m³'},{k:'coffrage',des:'Planche de coffrage',qte:coff,unite:'ML'},{k:'treillis',des:'Treillis soudé',qte:pan,unite:'panneau'},{k:'polyane',des:'Film polyane',qte:film,unite:'m²'}]};
-}
+function calcRes(){var o=OUV[calcType],v={};o.f.forEach(function(x){var el=$('cf_'+x[0]);v[x[0]]=el?num(el.value):num(x[2]);});return o.c(v);}
 function calcShow(){
- var r=calcRes(),h='<div><span>Volume théorique</span><b>'+fq(Math.round(r.theo*100)/100)+' m³</b></div>';
+ var r=calcRes(),h='';
+ r.info.forEach(function(x){h+='<div><span>'+x[0]+'</span><b>'+x[1]+'</b></div>';});
  r.items.forEach(function(it){h+='<div><span>'+it.des+'</span><b>'+fq(it.qte)+' '+it.unite+'</b></div>';});
  $('calcres').innerHTML=h;
 }
@@ -1244,10 +1371,10 @@ function doImport(txt){
  if(!o||!o.devis||!o.settings){alert('Ce n’est pas une sauvegarde de l’appli.');return;}
  if(!confirm('Remplacer toutes les données de cet appareil par cette sauvegarde ('+o.devis.length+' devis) ?'))return;
  var ph=o.photos||{},keys=Object.keys(ph);delete o.photos;
- state=o;load2();save();
+ state=o;load2();migrateClients();save();
  (function next(){if(!keys.length){location.hash='#home';render(false);toast('Sauvegarde importée');return;}var k=keys.shift();phPut(k,ph[k],function(){next();});})();
 }
-function load2(){var d=defState();for(var k in d.settings){if(state.settings[k]===undefined)state.settings[k]=d.settings[k];}if(!state.catalogue)state.catalogue=[];if(!state.seq)state.seq={};if(!state.events)state.events=[];if(!state.machines)state.machines=[];if(!state.locations)state.locations=[];if(!state.deleted)state.deleted={};}
+function load2(){var d=defState();for(var k in d.settings){if(state.settings[k]===undefined)state.settings[k]=d.settings[k];}if(!state.catalogue)state.catalogue=[];if(!state.seq)state.seq={};if(!state.events)state.events=[];if(!state.machines)state.machines=[];if(!state.locations)state.locations=[];if(!state.deleted)state.deleted={};if(!state.clients)state.clients=[];}
 
 /* ---------- actions ---------- */
 document.addEventListener('click',function(e){
@@ -1372,6 +1499,17 @@ document.addEventListener('click',function(e){
    for(var hk=1;hk<hl.length;hk++)hl[hk].qte='0';
    if(/^[A-Y]$/.test(cur.indice))cur.indice=String.fromCharCode(cur.indice.charCodeAt(0)+1);
    cur.date=today();touch();save();render(true);toast('Devis mis à jour, indice '+cur.indice+'. Ouvre l’aperçu pour l’envoyer');break;
+  case 'clNew':var nc=newClient();save();location.hash='#client-'+nc.id;break;
+  case 'clDel':if(confirm('Supprimer la fiche de '+(curC.nom||'ce client')+' ? Ses devis et locations sont conservés.')){markDel(curC.id);var cid=curC.id;state.devis.forEach(function(d){if(d.clientId===cid){d.clientId='';d.modifieLe=Date.now();}});state.locations.forEach(function(L){if(L.clientId===cid){L.clientId='';L.modifieLe=Date.now();}});state.clients.splice(state.clients.indexOf(curC),1);save();location.hash='#clients';}break;
+  case 'clDevis':var cd=newDevis(),cc0=curC;cd.clientId=cc0.id;cd.client={nom:cc0.nom,adresse:cc0.adresse,ville:cc0.ville,tel:cc0.tel,mail:cc0.mail};save();location.hash='#devis-'+cd.id;break;
+  case 'clLoc':var clo=newLoc(state.machines.length===1?state.machines[0].id:''),cc1=curC;clo.clientId=cc1.id;clo.client={nom:cc1.nom,tel:cc1.tel,adresse:[cc1.adresse,cc1.ville].filter(function(x){return x;}).join(', ')};save();location.hash='#location-'+clo.id;break;
+  case 'clientSave':
+   var co=w==='L'?curL:cur;if(!co)break;
+   if(!String(co.client.nom||'').trim()){toast('Indique d’abord le nom du client');break;}
+   var ex2=null;state.clients.forEach(function(x){if(sameName(x.nom,co.client.nom))ex2=x;});
+   if(ex2){co.clientId=ex2.id;co.modifieLe=Date.now();save();render(true);toast('Lié à la fiche existante');break;}
+   var nc2=w==='L'?newClient({nom:co.client.nom,tel:co.client.tel,adresse:co.client.adresse}):newClient(co.client);
+   co.clientId=nc2.id;co.modifieLe=Date.now();save();render(true);toast('Client enregistré');break;
   case 'chAll':chF.all=!chF.all;render(true);break;
   case 'syncNow':sync(true);break;
   case 'syncSave':
@@ -1390,6 +1528,7 @@ document.addEventListener('click',function(e){
 });
 
 load();
+migrateClients();
 render(false);
 setSyncIcon();
 setTimeout(function(){sync(false);},1200);
