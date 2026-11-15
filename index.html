@@ -184,6 +184,7 @@ textarea{min-height:64px;resize:vertical}
 <nav class="drawer no-print" id="drawer">
  <div class="dhead">Chantiers</div>
  <a href="#home"><span class="ic">🏠</span>Accueil</a>
+ <a href="#devislist"><span class="ic">📄</span>Devis</a>
  <a href="#planning"><span class="ic">📅</span>Planning</a>
  <a href="#parc"><span class="ic">🚜</span>Parc et locations</a>
  <a href="#catalogue"><span class="ic">📋</span>Catalogue</a>
@@ -357,17 +358,41 @@ function viewHome(){
   h+='<div class="todo">'+whenTag(x.n)+'<div class="t"><a href="'+href+'">'+esc(x.txt)+'</a><div class="small muted">'+esc(sub)+'</div></div>';
   h+='<a class="btn small sec" href="'+gcal(x.txt,x.date,sub)+'" target="_blank">Agenda</a></div>';
  });
- h+='</div>'+weekSummary()+'<div class="card"><h2>Devis ('+state.devis.length+')</h2>';
+ h+='</div>'+weekSummary()+'<div class="card"><div class="plan-head"><h2 style="margin:0">Derniers devis</h2><a class="btn sec small" href="#devislist" style="margin:0">Tous les devis ('+state.devis.length+')</a></div>';
  if(!state.devis.length)h+='<p class="muted">Aucun devis pour le moment.</p>';
- state.devis.forEach(function(d){
-  var t=totaux(d),si=STATUTS.indexOf(d.statut);
-  h+='<a class="row" href="#devis-'+d.id+'"><div class="main"><b>'+esc(d.client.nom||'Client à définir')+'</b><span class="small muted">'+esc(d.numero)+(d.reference?', '+esc(d.reference):'')+'</span></div>';
-  h+='<div class="side"><span class="pill st-'+si+'">'+esc(d.statut)+'</span><div class="small" style="margin-top:4px"><b style="display:inline">'+eur(t.facture)+'</b> facturé</div><div class="small muted">global '+eur(t.global)+'</div></div></a>';
- });
+ state.devis.slice(0,5).forEach(function(d){h+=devisRow(d);});
  h+='</div>';
  return h;
 }
-
+var dvF={q:'',st:''};
+function devisRow(d){
+ var t=totaux(d),si=STATUTS.indexOf(d.statut),h='';
+ h+='<a class="row" href="#devis-'+d.id+'"><div class="main"><b>'+esc(d.client.nom||'Client à définir')+'</b><span class="small muted">'+esc(d.numero)+(d.reference?', '+esc(d.reference):'')+(d.dateChantier?', chantier le '+frDate(d.dateChantier):'')+'</span></div>';
+ h+='<div class="side"><span class="pill st-'+si+'">'+esc(d.statut)+'</span><div class="small" style="margin-top:4px"><b style="display:inline">'+eur(t.facture)+'</b> facturé</div><div class="small muted">global '+eur(t.global)+'</div></div></a>';
+ return h;
+}
+function devisFiltered(){
+ var q=dvF.q.trim().toLowerCase();
+ return state.devis.filter(function(d){
+  if(dvF.st&&d.statut!==dvF.st)return false;
+  if(!q)return true;
+  return [d.numero,d.client.nom,d.reference,d.lieu,d.client.ville].join(' ').toLowerCase().indexOf(q)>=0;
+ });
+}
+function devisListHtml(){
+ var l=devisFiltered(),tf=0,tg=0;
+ l.forEach(function(d){var t=totaux(d);tf+=t.facture;tg+=t.global;});
+ if(!l.length)return '<p class="muted">'+(state.devis.length?'Aucun devis ne correspond.':'Aucun devis pour le moment.')+'</p>';
+ return '<p class="small muted">'+l.length+' devis, '+eur(tf)+' de prestation, '+eur(tg)+' de budget global</p>'+l.map(devisRow).join('');
+}
+function viewDevisList(){
+ var h='<div class="card"><h1>Devis</h1><button class="btn" data-a="new">+ Nouveau devis</button>';
+ h+='<label>Rechercher</label><input id="dvQ" value="'+esc(dvF.q)+'" placeholder="Client, n°, référence, lieu…" autocomplete="off">';
+ h+='<div style="margin-top:10px"><button class="btn small '+(dvF.st?'sec':'dark')+'" data-a="dvSt" data-s="">Tous</button>';
+ STATUTS.forEach(function(st){var n=state.devis.filter(function(d){return d.statut===st;}).length;h+='<button class="btn small '+(dvF.st===st?'dark':'sec')+'" data-a="dvSt" data-s="'+st+'">'+st+' ('+n+')</button>';});
+ h+='</div></div><div class="card" id="dvList">'+devisListHtml()+'</div>';
+ return h;
+}
 function inp(b,v,ph,extra){return '<input data-b="'+b+'" value="'+esc(v)+'"'+(ph?' placeholder="'+esc(ph)+'"':'')+(extra||'')+'>';}
 function numInp(b,v,ph){return inp(b,v,ph,' inputmode="decimal" autocomplete="off"');}
 
@@ -966,6 +991,7 @@ function render(keep){
  if(h.indexOf('devis-')===0){cur=getDevis(h.slice(6));if(!cur){location.hash='#home';return;}app.innerHTML=viewDevis(cur);}
  else if(h.indexOf('apercu-')===0){cur=getDevis(h.slice(7));if(!cur){location.hash='#home';return;}app.innerHTML=viewApercu(cur);}
  else if(h==='planning'){cur=null;app.innerHTML=viewPlanning();if(pendingEv){var pe=pendingEv;pendingEv=null;openEv(pe);}}
+ else if(h==='devislist'){cur=null;app.innerHTML=viewDevisList();$('dvQ').addEventListener('input',function(){dvF.q=this.value;$('dvList').innerHTML=devisListHtml();});}
  else if(h==='parc'){cur=null;app.innerHTML=viewParc();}
  else if(h.indexOf('machine-')===0){cur=null;curM=getMachine(h.slice(8));if(!curM){location.hash='#parc';return;}app.innerHTML=viewMachine(curM);}
  else if(h.indexOf('location-')===0){cur=null;curL=getLoc(h.slice(9));if(!curL){location.hash='#parc';return;}app.innerHTML=viewLoc(curL);}
@@ -1031,7 +1057,7 @@ $('burger').addEventListener('click',function(){if($('drawer').classList.contain
 $('veil').addEventListener('click',closeMenu);
 $('drawer').addEventListener('click',function(e){if(e.target.closest&&e.target.closest('a'))closeMenu();});
 function markMenu(h){
- var sec=h.indexOf('devis-')===0||h.indexOf('apercu-')===0?'home':(h.indexOf('machine-')===0||h.indexOf('location-')===0||h.indexOf('edl-')===0)?'parc':h;
+ var sec=h.indexOf('devis-')===0||h.indexOf('apercu-')===0?'devislist':(h.indexOf('machine-')===0||h.indexOf('location-')===0||h.indexOf('edl-')===0)?'parc':h;
  var as=$('drawer').querySelectorAll('a');
  for(var i=0;i<as.length;i++){var t=as[i].getAttribute('href').slice(1);if(t===sec||(sec===''&&t==='home'))as[i].classList.add('on');else as[i].classList.remove('on');}
 }
@@ -1215,6 +1241,7 @@ document.addEventListener('click',function(e){
   case 'quick':openQuick();break;
   case 'quickLoc':
    var q=quickObj(),ql=newLoc(q.machineId);ql.fin=q.fin;ql.forfait=q.forfait;ql.nettoyage=q.nettoyage;ql.km=q.km;save();closeModal();location.hash='#location-'+ql.id;break;
+  case 'dvSt':dvF.st=el.getAttribute('data-s');render(true);break;
   case 'syncNow':sync(true);break;
   case 'syncSave':
    var su=$('syU').value.trim(),sk=$('syK').value.trim();
