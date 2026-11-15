@@ -13,9 +13,17 @@
 html,body{margin:0;padding:0}
 body{font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;background:#efeeeb;color:#222;font-size:16px;-webkit-text-size-adjust:100%}
 a{color:#d9731a}
-.top{background:#2b2b2b;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;position:-webkit-sticky;position:sticky;top:0;z-index:20}
+.top{background:#2b2b2b;color:#fff;display:flex;align-items:center;padding:8px 10px;position:-webkit-sticky;position:sticky;top:0;z-index:20}
 .brand{color:#f28c28;font-weight:700;text-decoration:none;font-size:19px}
-.top nav a{color:#fff;text-decoration:none;margin-left:16px;font-size:15px}
+.burger{background:none;border:0;color:#fff;font-size:26px;line-height:1;padding:4px 10px;margin-right:6px;cursor:pointer;-webkit-appearance:none}
+.drawer{position:fixed;top:0;left:0;bottom:0;width:260px;max-width:80%;background:#2b2b2b;z-index:40;-webkit-transform:translateX(-105%);transform:translateX(-105%);-webkit-transition:-webkit-transform .25s ease;transition:transform .25s ease;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:20px}
+.drawer.open{-webkit-transform:translateX(0);transform:translateX(0);box-shadow:4px 0 16px rgba(0,0,0,.35)}
+.drawer .dhead{color:#f28c28;font-weight:700;font-size:20px;padding:18px 20px 14px;border-bottom:1px solid #444}
+.drawer a{display:block;color:#fff;text-decoration:none;font-size:17px;padding:15px 20px;border-left:4px solid transparent}
+.drawer a.on{background:#3a3a3a;border-left-color:#f28c28;color:#f28c28;font-weight:600}
+.drawer a .ic{display:inline-block;width:28px}
+.veil{position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:35;display:none}
+.veil.open{display:block}
 main{max-width:1020px;margin:0 auto;padding:14px}
 .card{background:#fff;border-radius:10px;padding:14px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
 h1{font-size:22px;margin:2px 0 12px}
@@ -144,12 +152,10 @@ textarea{min-height:64px;resize:vertical}
 .thumb .btn{position:absolute;top:3px;right:3px;margin:0;padding:3px 7px;font-size:12px}
 .mthumb{width:60px;height:60px;border-radius:8px;object-fit:cover;background:#e4e3e0;margin-right:12px;flex:0 0 60px;display:block}
 .edlph img{max-width:32%;max-height:210px;width:auto;margin:.5%;vertical-align:top}
-@media (max-width:430px){.brand{display:none}.top nav a:first-child{margin-left:0}}
 @media (max-width:600px){
  .lhead{display:none}
  .l-des{flex:1 1 100%}
  .l-q{flex:1 1 60px}.l-u{flex:1 1 70px}.l-pu{flex:1 1 80px}.l-tot{flex:1 1 90px}
- .top nav a{margin-left:9px;font-size:13px}
 }
 @media print{
  @page{size:A4;margin:10mm}
@@ -164,9 +170,18 @@ textarea{min-height:64px;resize:vertical}
 </head>
 <body>
 <header class="top no-print">
+ <button class="burger" id="burger" aria-label="Menu">☰</button>
  <a href="#home" class="brand">Chantiers</a>
- <nav><a href="#home">Accueil</a><a href="#planning">Planning</a><a href="#parc">Parc</a><a href="#catalogue">Catalogue</a><a href="#reglages">Réglages</a></nav>
 </header>
+<div class="veil no-print" id="veil"></div>
+<nav class="drawer no-print" id="drawer">
+ <div class="dhead">Chantiers</div>
+ <a href="#home"><span class="ic">🏠</span>Accueil</a>
+ <a href="#planning"><span class="ic">📅</span>Planning</a>
+ <a href="#parc"><span class="ic">🚜</span>Parc et locations</a>
+ <a href="#catalogue"><span class="ic">📋</span>Catalogue</a>
+ <a href="#reglages"><span class="ic">⚙️</span>Réglages</a>
+</nav>
 <main id="app"></main>
 <div id="modal" class="modal no-print hidden"><div class="modal-box" id="modal-box"></div></div>
 <datalist id="unites"></datalist>
@@ -822,6 +837,7 @@ function render(keep){
  else if(h==='reglages'){cur=null;app.innerHTML=viewReglages();bindImport();}
  else{cur=null;app.innerHTML=viewHome();}
  window.scrollTo(0,keep?y:0);
+ markMenu(h);
  hydrate();
 }
 function updateTotals(){
@@ -870,7 +886,17 @@ document.addEventListener('change',function(e){
  }
  if(el.getAttribute('data-re')){save();render(true);}
 });
-window.addEventListener('hashchange',function(){closeModal();render(false);});
+window.addEventListener('hashchange',function(){closeModal();closeMenu();render(false);});
+function openMenu(){$('drawer').classList.add('open');$('veil').classList.add('open');}
+function closeMenu(){$('drawer').classList.remove('open');$('veil').classList.remove('open');}
+$('burger').addEventListener('click',function(){if($('drawer').classList.contains('open'))closeMenu();else openMenu();});
+$('veil').addEventListener('click',closeMenu);
+$('drawer').addEventListener('click',function(e){if(e.target.closest&&e.target.closest('a'))closeMenu();});
+function markMenu(h){
+ var sec=h.indexOf('devis-')===0||h.indexOf('apercu-')===0?'home':(h.indexOf('machine-')===0||h.indexOf('location-')===0||h.indexOf('edl-')===0)?'parc':h;
+ var as=$('drawer').querySelectorAll('a');
+ for(var i=0;i<as.length;i++){var t=as[i].getAttribute('href').slice(1);if(t===sec||(sec===''&&t==='home'))as[i].classList.add('on');else as[i].classList.remove('on');}
+}
 
 /* ---------- modale ---------- */
 function showModal(html){$('modal-box').innerHTML=html;$('modal').classList.remove('hidden');}
