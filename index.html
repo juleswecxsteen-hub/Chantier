@@ -231,7 +231,7 @@ function $(id){return document.getElementById(id);}
 function toast(msg){var t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);},2200);}
 
 /* ---------- données ---------- */
-function defState(){return {version:1,settings:{noms:'',adresse1:'',adresse2:'',tel:'',mail:'',iban:'',bic:'',taux:'20',deplacement:'80',delaiCommande:'3',limites:'',prixKm:'0.6',cgl:'',siret:'',condLoc:'Le matériel est remis en bon état de marche et doit être rendu propre, à la date prévue. Toute casse, perte ou usure anormale est à la charge du locataire. La caution est restituée au retour après contrôle.'},catalogue:[],devis:[],seq:{},events:[],machines:[],locations:[],deleted:{},settingsModif:0,clients:[]};}
+function defState(){return {version:1,settings:{noms:'',adresse1:'',adresse2:'',tel:'',mail:'',iban:'',bic:'',taux:'20',deplacement:'80',delaiCommande:'3',limites:'',prixKm:'0.6',acomptePct:'50',cgl:'',siret:'',condLoc:'Le matériel est remis en bon état de marche et doit être rendu propre, à la date prévue. Toute casse, perte ou usure anormale est à la charge du locataire. La caution est restituée au retour après contrôle.'},catalogue:[],devis:[],seq:{},events:[],machines:[],locations:[],deleted:{},settingsModif:0,clients:[]};}
 function load(){
  try{var s=localStorage.getItem(KEY);state=s?JSON.parse(s):defState();}catch(e){state=defState();}
  var d=defState();
@@ -342,9 +342,9 @@ function rappels(){
   out.push({n:Math.min(0,daysBetween(t,td)),date:td,d:d,txt:'Envoyer les heures réelles à '+(d.client.nom||'client')+' ('+fq(bilan(d).hr)+' h)'});
  });
  state.locations.forEach(function(L){
-  if(L.statut==='réservée'&&L.debut){var n=daysBetween(t,L.debut);if(n<=1)out.push({n:n,date:L.debut,loc:L,txt:'Sortie '+mName(L.machineId)+' pour '+(L.client.nom||'client')+(L.contrat&&L.contrat.sigLoc?'':' (contrat à faire signer)')});}
+  if(L.statut==='réservée'&&L.debut){var n=daysBetween(t,L.debut);if(n<=1)out.push({n:n,date:L.debut,loc:L,txt:'Sortie '+mName(L.machineId)+' pour '+(L.client.nom||'client')+(L.contrat&&L.contrat.sigLoc?'':', contrat à faire signer')+(L.acompteRecu?'':', acompte de '+eur(locCalc(L).acompte)+' à encaisser')});}
   if(L.statut==='sortie'){var f=locEnd(L),n3=daysBetween(t,f);if(n3<=1)out.push({n:n3,date:f,loc:L,txt:'Retour '+mName(L.machineId)+' de '+(L.client.nom||'client')});}
-  if(L.statut==='rendue'){out.push({n:Math.min(0,daysBetween(t,locEnd(L))),date:t,loc:L,txt:'Encaisser la location de '+(L.client.nom||'client')+', '+eur(locCalc(L).total)});}
+  if(L.statut==='rendue'){out.push({n:Math.min(0,daysBetween(t,locEnd(L))),date:t,loc:L,txt:'Encaisser le solde de '+(L.client.nom||'client')+', '+eur(locCalc(L).reste)});}
  });
  state.machines.forEach(function(m){if(entretienDu(m))out.push({n:0,date:t,mach:m,txt:'Entretien à prévoir : '+(m.nom||'machine')+' ('+fq(m.heures)+' h)'});});
  out.sort(function(a,b){return a.n-b.n;});
@@ -361,7 +361,7 @@ function viewHome(){
   if(d.statut==='signé'||d.statut==='en cours')enCours++;
   if(d.statut==='payé'&&String(d.date).slice(0,4)===y)ca+=t.facture;
  });
- state.locations.forEach(function(L){if(L.statut==='rendue'||L.statut==='sortie')attente+=locCalc(L).total;if(L.statut==='payée'&&String(L.debut).slice(0,4)===y)ca+=locCalc(L).total;});
+ state.locations.forEach(function(L){if(L.statut==='rendue'||L.statut==='sortie')attente+=locCalc(L).reste;if(L.statut==='payée'&&String(L.debut).slice(0,4)===y)ca+=locCalc(L).total;});
  var h='<div class="card"><h1>Accueil</h1><button class="btn" data-a="new">+ Nouveau devis</button><button class="btn dark" data-a="locNew">+ Location</button></div>';
  h+='<div class="stats"><div class="stat"><div class="v">'+eur(attente)+'</div><div class="l">En attente de paiement</div></div>';
  h+='<div class="stat"><div class="v">'+enCours+'</div><div class="l">Chantiers signés ou en cours</div></div>';
@@ -621,7 +621,7 @@ function viewReglages(){
  h+='<div class="grid"><div class="w2"><label>IBAN (pied de devis)</label>'+inp('s.iban',s.iban)+'</div><div><label>BIC</label>'+inp('s.bic',s.bic)+'</div></div></div>';
  h+='<div class="card"><h2>Valeurs par défaut</h2><div class="grid"><div><label>Taux horaire main d’œuvre (€ HT)</label>'+numInp('s.taux',s.taux)+'</div><div><label>Forfait déplacement (€ HT)</label>'+numInp('s.deplacement',s.deplacement)+'</div><div><label>Commander les matériaux (jours avant chantier)</label>'+numInp('s.delaiCommande',s.delaiCommande)+'</div></div>';
  h+='<label>Limites de prestation par défaut</label><textarea data-b="s.limites">'+esc(s.limites)+'</textarea></div>';
- h+='<div class="card"><h2>Locations</h2><label>Prix du transport (€ HT par km)</label>'+numInp('s.prixKm',s.prixKm)+'<label>Conditions générales du contrat de location</label><textarea data-b="s.cgl" style="min-height:220px">'+esc(s.cgl||CGL_DEFAUT)+'</textarea><button class="btn sec small" data-a="cglReset" style="margin-top:6px">Remettre le texte par défaut</button><p class="small muted">Modèle de base à faire relire par un professionnel avant de louer à des entreprises.</p><label>Conditions courtes (sur l’état des lieux)</label><textarea data-b="s.condLoc">'+esc(s.condLoc)+'</textarea></div>';
+ h+='<div class="card"><h2>Locations</h2><div class="grid"><div><label>Prix du transport (€ HT par km)</label>'+numInp('s.prixKm',s.prixKm)+'</div><div><label>Acompte à la prise du matériel (%)</label>'+numInp('s.acomptePct',s.acomptePct)+'</div></div><label>Conditions générales du contrat de location</label><textarea data-b="s.cgl" style="min-height:220px">'+esc(s.cgl||CGL_DEFAUT)+'</textarea><button class="btn sec small" data-a="cglReset" style="margin-top:6px">Remettre le texte par défaut</button><p class="small muted">Modèle de base à faire relire par un professionnel avant de louer à des entreprises.</p><label>Conditions courtes (sur l’état des lieux)</label><textarea data-b="s.condLoc">'+esc(s.condLoc)+'</textarea></div>';
  h+=syncCard();
  h+='<div class="card"><h2>Sauvegarde</h2><p class="small muted">Les données sont dans cet appareil ('+Math.round(used/1024)+' Ko utilisés sur environ 5000). Une sauvegarde de temps en temps ne fait pas de mal, même avec la synchro.</p>';
  h+='<button class="btn" data-a="export">Exporter un fichier</button><button class="btn sec" data-a="showExport">Copier les données</button>';
@@ -742,15 +742,16 @@ function locCalc(L){
   if(weeks)lines.push({des:'Location à la semaine',q:weeks,u:'semaine',pu:w});
   if(rest)lines.push({des:'Location à la journée',q:rest,u:'jour',pu:j});
  }
- if(L.nettoyage&&num(t.nettoyage))lines.push({des:'Nettoyage',q:1,u:'forfait',pu:num(t.nettoyage)});
+ if(L.nettoyage&&num(t.nettoyage))lines.push({des:'Nettoyage',q:1,u:'forfait',pu:num(t.nettoyage),v:1});
  var so=L.sortie||{},re=L.retour||{},us=num(so.mesure)-num(re.mesure);
- if(num(t.usureMm)&&String(so.mesure||'')!==''&&String(re.mesure||'')!==''&&us>0)lines.push({des:'Usure disque ('+fq(so.mesure)+' mm au départ, '+fq(re.mesure)+' mm au retour)',q:Math.round(us*10)/10,u:'mm',pu:num(t.usureMm)});
+ if(num(t.usureMm)&&String(so.mesure||'')!==''&&String(re.mesure||'')!==''&&us>0)lines.push({des:'Usure disque ('+fq(so.mesure)+' mm au départ, '+fq(re.mesure)+' mm au retour)',q:Math.round(us*10)/10,u:'mm',pu:num(t.usureMm),v:1});
  if(num(L.km))lines.push({des:'Transport',q:num(L.km),u:'km',pu:num(state.settings.prixKm)});
- if(num(L.carburantEur))lines.push({des:'Carburant',q:1,u:'forfait',pu:num(L.carburantEur)});
- if(num(L.fraisEur))lines.push({des:L.fraisLib||'Frais divers',q:1,u:'forfait',pu:num(L.fraisEur)});
+ if(num(L.carburantEur))lines.push({des:'Carburant',q:1,u:'forfait',pu:num(L.carburantEur),v:1});
+ if(num(L.fraisEur))lines.push({des:L.fraisLib||'Frais divers',q:1,u:'forfait',pu:num(L.fraisEur),v:1});
  if(num(L.remise))lines.push({des:'Remise',q:1,u:'forfait',pu:-num(L.remise)});
- var tot=0;lines.forEach(function(l){tot+=l.q*l.pu;});
- return {days:days,lines:lines,total:tot};
+ var tot=0,base=0;lines.forEach(function(l){tot+=l.q*l.pu;if(!l.v)base+=l.q*l.pu;});
+ var pct=num(state.settings.acomptePct),ac=Math.round(base*pct)/100;
+ return {days:days,lines:lines,total:tot,base:base,extras:tot-base,pct:pct,acompte:ac,solde:tot-ac,reste:tot-(L.acompteRecu?ac:0)-(L.soldeRecu?tot-ac:0)};
 }
 function lastEntretien(m){var b=null;(m.entretien||[]).forEach(function(e){if(!b||num(e.heures)>num(b.heures))b=e;});return b;}
 function entretienDu(m){var iv=num(m.intervalle);if(!iv||String(m.heures)==='')return false;var le=lastEntretien(m);return num(m.heures)-(le?num(le.heures):0)>=iv;}
@@ -808,6 +809,7 @@ function viewMachine(m){
  h+='<div class="card"><h2>Locations de cette machine</h2><p class="small muted">Encaissé au total : '+eur(ca)+'</p>'+(ls.length?ls.map(locRow).join(''):'<p class="muted">Aucune.</p>')+'</div>';
  return h;
 }
+function locPayHtml(c){return '<div><span>Acompte à la prise ('+fq(c.pct)+' % de '+eur(c.base)+')</span><b>'+eur(c.acompte)+'</b></div><div><span>Solde à la restitution'+(c.extras?' (frais au retour inclus)':'')+'</span><b>'+eur(c.solde)+'</b></div><div class="big"><span>Reste à encaisser</span><span>'+eur(c.reste)+'</span></div>';}
 function prixTable(c){
  var h='<div class="recap">';
  c.lines.forEach(function(l){h+='<div><span>'+esc(l.des)+'<br><span class="muted small">'+fq(l.q)+' '+esc(l.u)+' × '+eur(l.pu)+'</span></span><b>'+eur(l.q*l.pu)+'</b></div>';});
@@ -839,6 +841,9 @@ function viewLoc(L){
  h+='<div class="grid"><div><label>Transport (km aller retour)</label>'+numInp('L.km',L.km)+'</div><div><label>Carburant (€)</label>'+numInp('L.carburantEur',L.carburantEur)+'</div><div><label>Remise (€)</label>'+numInp('L.remise',L.remise)+'</div></div>';
  h+='<div class="grid"><div class="w2"><label>Autres frais (libellé)</label>'+inp('L.fraisLib',L.fraisLib,'ex : casse lame')+'</div><div><label>Autres frais (€)</label>'+numInp('L.fraisEur',L.fraisEur)+'</div></div>';
  h+='<div id="locprix" style="margin-top:12px">'+prixTable(c)+'</div>';
+ h+='<div class="card" style="background:#f7f5f1;box-shadow:none;margin:12px 0 0"><h2>Paiement</h2><div class="recap" id="locpay">'+locPayHtml(c)+'</div>';
+ h+='<label class="chk"><input type="checkbox" data-b="L.acompteRecu" data-re="1"'+(L.acompteRecu?' checked':'')+'>Acompte reçu à la prise du matériel</label>';
+ h+='<label class="chk"><input type="checkbox" data-b="L.soldeRecu" data-re="1"'+(L.soldeRecu?' checked':'')+'>Solde reçu à la restitution</label></div>';
  h+='<div class="grid"><div><label>Caution demandée (€)</label>'+numInp('L.caution',L.caution)+'</div><div><label class="chk"><input type="checkbox" data-b="L.cautionRendue"'+(L.cautionRendue?' checked':'')+'>Caution rendue</label></div></div>';
  h+='<label>Note</label><textarea data-b="L.note">'+esc(L.note)+'</textarea></div>';
  return h;
@@ -859,7 +864,9 @@ function viewEdl(L){
  if(re.photos.length)h+='<div class="dbox" style="white-space:normal"><b>Photos au retour</b><div class="edlph">'+imgs(re.photos)+'</div></div>';
  h+='<table class="dt"><thead><tr><th>Désignation</th><th class="r" style="width:60px">Qté</th><th class="c" style="width:70px">U</th><th class="r" style="width:84px">PU HT</th><th class="r" style="width:92px">Total HT</th></tr></thead><tbody>';
  c.lines.forEach(function(l){h+='<tr><td>'+esc(l.des)+'</td><td class="r">'+fq(l.q)+'</td><td class="c">'+esc(l.u)+'</td><td class="r">'+eur(l.pu)+'</td><td class="r">'+eur(l.q*l.pu)+'</td></tr>';});
- h+='<tr class="st"><td colspan="4" class="r">Total HT</td><td class="r">'+eur(c.total)+'</td></tr></tbody></table>';
+ h+='<tr class="st"><td colspan="4" class="r">Total HT</td><td class="r">'+eur(c.total)+'</td></tr>';
+ if(L.acompteRecu)h+='<tr><td colspan="4" class="r">Acompte versé à la prise du matériel</td><td class="r">'+eur(-c.acompte)+'</td></tr>';
+ h+='<tr class="st"><td colspan="4" class="r">Reste à payer</td><td class="r">'+eur(c.reste)+'</td></tr></tbody></table>';
  if(s.condLoc)h+='<div class="dbox"><b>Conditions de location :</b>\n'+esc(s.condLoc)+'</div>';
  h+='<div class="dsig"><div>Au départ, le client :<br><span class="small">Lu et approuvé, matériel reçu en bon état</span><br>'+(so.sig?'<img src="'+so.sig+'" alt="">':'')+'</div><div>Au retour, le client :<br><span class="small">État de retour constaté</span><br>'+(re.sig?'<img src="'+re.sig+'" alt="">':'')+'</div></div>';
  if(s.iban)h+='<div class="dfoot">Coordonnées bancaires : IBAN '+esc(s.iban)+(s.bic?', BIC '+esc(s.bic):'')+'</div>';
@@ -1177,7 +1184,7 @@ var CGL_DEFAUT=[
 '6. Casse, vol et perte. Les réparations rendues nécessaires par une mauvaise utilisation, un choc ou un défaut d’entretien sont à la charge du locataire, sur présentation des justificatifs. En cas de vol, le locataire doit déposer plainte et prévenir le loueur sous 48 heures. Tout matériel perdu, volé ou irréparable est remboursé à sa valeur de remplacement.',
 '7. Consommables et usure. Le carburant manquant au retour et le nettoyage d’un matériel rendu sale peuvent être facturés. L’usure des disques et outils de coupe est mesurée au départ et au retour et facturée au tarif indiqué.',
 '8. Caution. Une caution est versée à la remise du matériel. Elle est restituée après le retour et le contrôle du matériel, déduction faite des sommes éventuellement dues.',
-'9. Paiement. Sauf accord contraire, le prix de la location est payable à la restitution du matériel.',
+'9. Paiement. L’acompte indiqué au contrat est payé à la remise du matériel. Le solde est payé à la restitution, augmenté des frais constatés au retour (usure des disques, carburant, nettoyage, réparations). Le matériel n’est remis qu’après paiement de l’acompte et versement de la caution.',
 '10. Litiges. En cas de désaccord, les parties s’engagent à rechercher d’abord une solution amiable.'
 ].join('\n\n');
 function contratCard(L){
@@ -1205,9 +1212,15 @@ function viewContrat(L){
  h+='<p><b>Caution :</b> '+(num(L.caution)?eur(L.caution):'aucune')+(c.cautionMode?' par '+esc(c.cautionMode):'')+'</p>';
  h+='<p>Un état des lieux de départ et de retour (réf. '+esc(L.numero)+') est établi et signé par les parties. Il fait partie du présent contrat.</p></div>';
  h+='<table class="dt"><thead><tr><th>Désignation</th><th class="r" style="width:60px">Qté</th><th class="c" style="width:70px">U</th><th class="r" style="width:84px">Prix</th><th class="r" style="width:92px">Total</th></tr></thead><tbody>';
- k.lines.forEach(function(l){h+='<tr><td>'+esc(l.des)+'</td><td class="r">'+fq(l.q)+'</td><td class="c">'+esc(l.u)+'</td><td class="r">'+eur(l.pu)+'</td><td class="r">'+eur(l.q*l.pu)+'</td></tr>';});
- h+='<tr class="st"><td colspan="4" class="r">Total de la location</td><td class="r">'+eur(k.total)+'</td></tr></tbody></table>';
- h+='<p class="small" style="margin:4px 0 0">Les frais d’usure, de carburant ou de réparation constatés au retour s’ajoutent selon l’état des lieux.</p>';
+ k.lines.forEach(function(l){if(l.v)return;h+='<tr><td>'+esc(l.des)+'</td><td class="r">'+fq(l.q)+'</td><td class="c">'+esc(l.u)+'</td><td class="r">'+eur(l.pu)+'</td><td class="r">'+eur(l.q*l.pu)+'</td></tr>';});
+ h+='<tr class="st"><td colspan="4" class="r">Prix de la location</td><td class="r">'+eur(k.base)+'</td></tr></tbody></table>';
+ var mt=m.tarifs||{},fr=[];
+ if(num(mt.usureMm))fr.push('usure du disque : '+eur(mt.usureMm)+' par mm mesuré entre le départ et le retour');
+ if(num(mt.nettoyage))fr.push('nettoyage si le matériel est rendu sale : '+eur(mt.nettoyage));
+ fr.push('carburant manquant : au coût réel');fr.push('casse ou pièces manquantes : sur justificatif');
+ h+='<div class="dpay" style="display:block"><div style="display:flex;justify-content:space-between"><span>Acompte à payer à la prise du matériel ('+fq(k.pct)+' %) :</span><span>'+eur(k.acompte)+'</span></div>';
+ h+='<div style="display:flex;justify-content:space-between;margin-top:4px"><span>Solde à payer à la restitution :</span><span>'+eur(k.base-k.acompte)+' + frais constatés au retour</span></div>';
+ h+='<div style="font-weight:400;margin-top:6px;font-size:10.5px">Frais ajoutés au retour selon l’état des lieux : '+fr.join(' ; ')+'.</div></div>';
  h+='<div class="dbox cgl"><b>CONDITIONS GÉNÉRALES DE LOCATION</b>\n'+esc(s.cgl||CGL_DEFAUT)+'</div>';
  h+='<div class="dsig"><div>Le loueur<br><span class="small">Fait le '+frDate(c.date||L.sortie.date||today())+'</span><br>'+(c.sigLoueur?'<img src="'+c.sigLoueur+'" alt="">':'')+'</div><div>Le locataire<br><span class="small">Lu et approuvé, conditions générales acceptées</span><br>'+(c.sigLoc?'<img src="'+c.sigLoc+'" alt="">':'')+'</div></div>';
  return h+'</div></div>';
@@ -1266,6 +1279,7 @@ function setB(path,val){
   curL.modifieLe=Date.now();
   if(/^L\.(sortie|retour)\.heures$/.test(path)){var mm=getMachine(curL.machineId);if(mm&&num(val)>num(mm.heures)){mm.heures=String(val);mm.modifieLe=Date.now();}}
   var lp=$('locprix');if(lp)lp.innerHTML=prixTable(locCalc(curL));
+  var lpy=$('locpay');if(lpy)lpy.innerHTML=locPayHtml(locCalc(curL));
  }
  if(path==='d.statut'&&val==='terminé'&&cur&&!suivi(cur).termineLe)cur.suivi.termineLe=today();
  if(path.indexOf('d.suivi.')===0&&$('bilanBox')&&cur)$('bilanBox').outerHTML=bilanCard(cur);
@@ -1296,6 +1310,7 @@ document.addEventListener('change',function(e){
   if(av>=100&&(cur.statut==='signé'||cur.statut==='en cours')){cur.statut='terminé';suivi(cur).termineLe=today();touch();save();render(true);toast('Chantier passé en terminé');return;}
   if(av>0&&cur.statut==='signé'){cur.statut='en cours';touch();save();render(true);toast('Chantier passé en cours');return;}
  }
+ if(b==='L.soldeRecu'&&el.checked&&curL&&(curL.statut==='rendue'||curL.statut==='sortie')){curL.statut='payée';toast('Location passée en payée');}
  if(el.getAttribute('data-re')){save();render(true);}
 });
 window.addEventListener('hashchange',function(){closeModal();closeMenu();render(false);});
