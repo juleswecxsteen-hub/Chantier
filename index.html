@@ -138,7 +138,7 @@ textarea{min-height:64px;resize:vertical}
 .day .dl.today{color:#d9731a}
 .day .di{flex:1;min-width:0}
 .chip{display:block;padding:6px 9px;border-radius:6px;margin:0 0 5px;font-size:14px;color:#fff;text-decoration:none;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.k-chantier{background:#f28c28}.k-location{background:#2f6fb0}.k-livraison{background:#7b5ea7}.k-perso{background:#555}.k-commande{background:#8a8a8a}.k-paiement{background:#2e7d32}.k-devis{background:#f6c08a;color:#222!important}
+.k-chantier{background:#f28c28}.k-location{background:#2f6fb0}.k-livraison{background:#7b5ea7}.k-perso{background:#555}.k-commande{background:#8a8a8a}.k-paiement{background:#2e7d32}.k-heures{background:#c0392b}.k-devis{background:#f6c08a;color:#222!important}
 .legend{margin-top:6px}
 .legend span{display:inline-block;margin:0 10px 4px 0;font-size:12px;color:#555}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:middle}
@@ -294,6 +294,7 @@ function itemsOn(ds){
  (state.locations||[]).forEach(function(L){if(L.statut!=='annulée'&&L.debut&&L.debut<=ds&&ds<=locEnd(L))out.push({k:'location',loc:L,label:mName(L.machineId)+', '+(L.client.nom||L.numero)});});
  state.devis.forEach(function(d){
   if(d.statut==='payé'||d.statut==='brouillon')return;
+  if(d.statut==='terminé'&&d.suivi&&!d.suivi.heuresEnvoyees&&(d.suivi.termineLe||today())===ds)out.push({k:'heures',d:d,label:'Envoyer heures réelles : '+(d.client.nom||d.numero)});
   if(d.dateChantier===ds&&!hasEvent(d.id))out.push({k:'devis',d:d,label:'Chantier à planifier : '+(d.client.nom||d.numero)});
   d.postes.forEach(function(p){if(p.type==='client'&&p.dateCommande===ds&&!p.commande)out.push({k:'commande',d:d,label:'Commander '+(p.titre||'matériaux')+(p.fournisseur?' ('+p.fournisseur+')':'')});});
   if(d.echeance===ds&&(d.statut==='signé'||d.statut==='en cours'||d.statut==='terminé'))out.push({k:'paiement',d:d,label:'Paiement '+(d.client.nom||d.numero)+', '+eur(totaux(d).facture)});
@@ -332,6 +333,11 @@ function rappels(){
    if(n2<=1)out.push({n:n2,date:d.echeance,d:d,pay:true,txt:(n2<0?'Relancer le paiement de ':'Paiement attendu de ')+(d.client.nom||'client')+', '+eur(totaux(d).facture)});
   }
  });
+ state.devis.forEach(function(d){
+  if(d.statut!=='terminé'||!d.suivi||d.suivi.heuresEnvoyees)return;
+  var td=d.suivi.termineLe||t;
+  out.push({n:Math.min(0,daysBetween(t,td)),date:td,d:d,txt:'Envoyer les heures réelles à '+(d.client.nom||'client')+' ('+fq(bilan(d).hr)+' h)'});
+ });
  state.locations.forEach(function(L){
   if(L.statut==='réservée'&&L.debut){var n=daysBetween(t,L.debut);if(n<=1)out.push({n:n,date:L.debut,loc:L,txt:'Sortie '+mName(L.machineId)+' pour '+(L.client.nom||'client')});}
   if(L.statut==='sortie'){var f=locEnd(L),n3=daysBetween(t,f);if(n3<=1)out.push({n:n3,date:f,loc:L,txt:'Retour '+mName(L.machineId)+' de '+(L.client.nom||'client')});}
@@ -356,7 +362,7 @@ function viewHome(){
  var h='<div class="card"><h1>Accueil</h1><button class="btn" data-a="new">+ Nouveau devis</button><button class="btn dark" data-a="locNew">+ Location</button></div>';
  h+='<div class="stats"><div class="stat"><div class="v">'+eur(attente)+'</div><div class="l">En attente de paiement</div></div>';
  h+='<div class="stat"><div class="v">'+enCours+'</div><div class="l">Chantiers signés ou en cours</div></div>';
- h+='<div class="stat"><div class="v">'+eur(ca)+'</div><div class="l">Encaissé '+y+' (part chacun : '+eur(ca/2)+')</div></div></div>';
+ h+='<div class="stat"><div class="v">'+eur(ca)+'</div><div class="l">Encaissé en '+y+'</div></div></div>';
  h+='<div class="card"><h2>À faire</h2>';
  if(!r.length)h+='<p class="muted">Rien d’urgent. Les rappels apparaissent ici pour les devis signés ou en cours.</p>';
  r.forEach(function(x){
@@ -455,7 +461,7 @@ function viewDevis(d){
 
  h+='<div class="card"><h2>Ajouter</h2><button class="btn" data-a="addP" data-type="client">+ Poste fournisseur (payé client)</button><button class="btn" data-a="addP" data-type="facture">+ Poste facturé</button><button class="btn dark" data-a="addMO">+ Main d’œuvre et déplacement</button><button class="btn sec" data-a="calc">Calcul d’ouvrage</button></div>';
 
- h+='<div class="card recap"><h2>Récapitulatif</h2><div><span>Fournitures payées par le client (info)</span><b data-t="tc">'+eur(t.client)+'</b></div><div><span>Prestation facturée</span><b data-t="tf">'+eur(t.facture)+'</b></div><div><span>Part chacun (50/50)</span><b data-t="th">'+eur(t.facture/2)+'</b></div><div class="big"><span>Budget global HT</span><span data-t="tg">'+eur(t.global)+'</span></div></div>';
+ h+='<div class="card recap"><h2>Récapitulatif</h2><div><span>Fournitures payées par le client (info)</span><b data-t="tc">'+eur(t.client)+'</b></div><div><span>Prestation facturée</span><b data-t="tf">'+eur(t.facture)+'</b></div><div class="big"><span>Budget global HT</span><span data-t="tg">'+eur(t.global)+'</span></div></div>';
 
  h+='<div class="card"><h2>Conditions</h2><label>Limites de prestation</label><textarea data-b="d.limites" placeholder="Ce qui n’est pas compris dans la prestation">'+esc(d.limites)+'</textarea>';
  h+='<label>Planning</label><textarea data-b="d.planning" placeholder="ex : coffrage le vendredi, coulage le samedi 9h30">'+esc(d.planning)+'</textarea></div>';
@@ -509,7 +515,7 @@ function viewPlanning(){
  h+='<div class="card"><div class="plan-head"><h1 style="margin:0">Planning</h1><button class="btn" data-a="evNew" style="margin:0">+ Événement</button></div>';
  h+='<div style="margin-top:12px"><button class="btn sec small" data-a="planPrev">‹</button><button class="btn sec small" data-a="planToday">Aujourd’hui</button><button class="btn sec small" data-a="planNext">›</button>';
  h+='<button class="btn small '+(mois?'sec':'dark')+'" data-a="planMode" data-m="semaine">Semaine</button><button class="btn small '+(mois?'dark':'sec')+'" data-a="planMode" data-m="mois">Mois</button></div>';
- var leg=[['chantier','Chantier'],['location','Location'],['livraison','Livraison'],['commande','Commande'],['paiement','Paiement'],['devis','À planifier']];
+ var leg=[['chantier','Chantier'],['location','Location'],['livraison','Livraison'],['commande','Commande'],['paiement','Paiement'],['devis','À planifier'],['heures','Heures à envoyer']];
  h+='<div class="legend">'+leg.map(function(l){return '<span><i class="k-'+l[0]+'"></i>'+l[1]+'</span>';}).join('')+'</div>';
  if(!mois){
   var mon=mondayOf(plan.ref),sun=addDays(mon,6),dm=parseISO(mon),dsu=parseISO(sun);
@@ -907,8 +913,8 @@ function mergeState(L,R){
 function r2(n){return Math.round(num(n)*100)/100;}
 function summary(){
  function v(x){return x==null?'':x;}
- var D=[['N° devis','Date','Statut','Client','Référence','Lieu','Date chantier','Fournitures client','Prestation','Budget global','Échéance','Avancement %','Heures prévues','Heures réelles','Dépenses','Marge','Modifié le']];
- state.devis.forEach(function(d){var t=totaux(d);D.push([v(d.numero),frDate(d.date),v(d.statut),v(d.client.nom),v(d.reference),v(d.lieu),frDate(d.dateChantier),r2(t.client),r2(t.facture),r2(t.global),frDate(d.echeance)].concat((function(){var b=bilan(d);return [b.av,r2(b.hp),r2(b.hr),r2(b.dn),r2(b.marge)];})()).concat([stamp(d.modifieLe)]));});
+ var D=[['N° devis','Date','Statut','Client','Référence','Lieu','Date chantier','Fournitures client','Prestation','Budget global','Échéance','Avancement %','Heures prévues','Heures réelles','Dépenses','À facturer (heures réelles)','Heures envoyées','Modifié le']];
+ state.devis.forEach(function(d){var t=totaux(d);D.push([v(d.numero),frDate(d.date),v(d.statut),v(d.client.nom),v(d.reference),v(d.lieu),frDate(d.dateChantier),r2(t.client),r2(t.facture),r2(t.global),frDate(d.echeance)].concat((function(){var b=bilan(d);return [b.av,r2(b.hp),r2(b.hr),r2(b.dn),r2(b.aFact),d.statut==='terminé'||d.statut==='payé'?(b.envoye?'oui':'non'):''];})()).concat([stamp(d.modifieLe)]));});
  var Lo=[['N° location','Machine','Client','Téléphone','Du','Au','Jours','Statut','Total HT','Caution','Caution rendue']];
  state.locations.forEach(function(L){var c=locCalc(L);Lo.push([v(L.numero),mName(L.machineId),v(L.client.nom),v(L.client.tel),frDate(L.debut),frDate(locEnd(L)),c.days,v(L.statut),r2(c.total),r2(L.caution),L.cautionRendue?'oui':'non']);});
  var M=[['Machine','Marque','Modèle','N° série','Compteur (h)','Jour','Week end','Semaine','Caution','Entretien à prévoir']];
@@ -995,24 +1001,27 @@ var chF={all:false};
 function suivi(d){if(!d.suivi)d.suivi={avancement:'0',journal:[],depenses:[]};return d.suivi;}
 function isHeure(u){u=String(u||'').trim().toLowerCase();return u==='h'||u.indexOf('heure')===0;}
 function bilan(d){
- var s=suivi(d),t=totaux(d),hp=0,moP=0,hr=0,dn=0,dc=0;
- d.postes.forEach(function(p){if(p.type==='client')return;p.lignes.forEach(function(l){if(isHeure(l.unite)){hp+=num(l.qte);moP+=ligneTot(l);}});});
+ var s=suivi(d),t=totaux(d),hp=0,moP=0,hr=0,dn=0,dc=0,taux=0;
+ d.postes.forEach(function(p){if(p.type==='client')return;p.lignes.forEach(function(l){if(isHeure(l.unite)){hp+=num(l.qte);moP+=ligneTot(l);if(!taux)taux=num(l.pu);}});});
+ if(!taux)taux=num(state.settings.taux);
  s.journal.forEach(function(j){hr+=num(j.personnes||1)*num(j.heures);});
  s.depenses.forEach(function(x){if(x.qui==='client')dc+=num(x.montant);else dn+=num(x.montant);});
- var marge=t.facture-dn;
- return {fact:t.facture,client:t.client,hp:hp,hr:hr,dn:dn,dc:dc,marge:marge,gainH:hr?marge/hr:0,prevuH:hp?moP/hp:0,av:Math.max(0,Math.min(100,num(s.avancement)))};
+ var moR=hr*taux;
+ return {fact:t.facture,client:t.client,hp:hp,hr:hr,dn:dn,dc:dc,taux:taux,moP:moP,moR:moR,aFact:t.facture-moP+moR,envoye:!!s.heuresEnvoyees,av:Math.max(0,Math.min(100,num(s.avancement)))};
 }
 function bar(p){return '<div class="bar"><i style="width:'+p+'%"></i></div>';}
 function ecart(a,b,inv){if(!b)return '';var d=a-b,cls=(inv?d<0:d>0)?'bad':'good';return ' <span class="'+cls+'">('+(d>0?'+':'')+fq(Math.round(d*10)/10)+')</span>';}
 function bilanCard(d){
  var b=bilan(d),h='<div class="card recap" id="bilanBox"><h2>Bilan</h2>';
- h+='<div><span>Prestation facturée</span><b>'+eur(b.fact)+'</b></div>';
- h+='<div><span>Dépenses à notre charge</span><b>'+eur(b.dn)+'</b></div>';
- h+='<div class="big"><span>Marge</span><span>'+eur(b.marge)+'</span></div>';
- h+='<div><span>Part chacun (50/50)</span><b>'+eur(b.marge/2)+'</b></div>';
  h+='<div><span>Heures prévues / réelles</span><b>'+fq(b.hp)+' h / '+fq(b.hr)+' h'+ecart(b.hr,b.hp)+'</b></div>';
- h+='<div><span>Gagné par heure travaillée</span><b>'+(b.hr?eur(b.gainH):'pas encore d’heures')+(b.prevuH?' <span class="muted small">(prévu '+eur(b.prevuH)+')</span>':'')+'</b></div>';
+ h+='<div><span>Main d’œuvre prévue ('+fq(b.hp)+' h × '+eur(b.taux)+')</span><b>'+eur(b.moP)+'</b></div>';
+ h+='<div><span>Main d’œuvre réelle ('+fq(b.hr)+' h × '+eur(b.taux)+')</span><b>'+eur(b.moR)+'</b></div>';
+ h+='<div class="big"><span>Prestation à facturer (heures réelles)</span><span>'+eur(b.aFact)+'</span></div>';
+ h+='<div><span>Devis initial</span><b>'+eur(b.fact)+'</b></div>';
+ if(b.dn)h+='<div><span>Dépenses à notre charge</span><b>'+eur(b.dn)+'</b></div>';
  if(b.client||b.dc)h+='<div><span>Fournitures client, prévu / réel</span><b>'+eur(b.client)+' / '+eur(b.dc)+'</b></div>';
+ h+='<p style="margin:12px 0 4px"><button class="btn" data-a="majHeures">Mettre le devis à jour avec les heures réelles</button></p>';
+ h+='<label class="chk"><input type="checkbox" data-b="d.suivi.heuresEnvoyees" data-re="1"'+(b.envoye?' checked':'')+'>Heures réelles envoyées au client</label>';
  return h+'</div>';
 }
 function viewSuivi(d){
@@ -1033,7 +1042,7 @@ function viewSuivi(d){
   h+='<label>Notes</label><textarea data-b="'+bb+'note">'+esc(j.note)+'</textarea>';
   h+='<label>Photos ('+j.photos.length+')</label><div class="phgrid">'+j.photos.map(function(p,k){return thumb(p,'j:'+j.id,k);}).join('')+'</div><input type="file" accept="image/*" multiple data-ph-add="j:'+j.id+'"></div>';
  });
- h+='<div class="card"><h2>Dépenses</h2><p class="small muted">Ce que vous payez vous mêmes (carburant, consommables, location de benne…) réduit la marge. Les achats payés par le client sont notés pour comparer avec le prévu.</p>';
+ h+='<div class="card"><h2>Dépenses</h2><p class="small muted">Ce que vous payez vous mêmes (carburant, consommables, location de benne…), et les achats payés par le client pour comparer avec le prévu.</p>';
  s.depenses.forEach(function(x,i){h+='<div class="todo"><div class="t"><b>'+esc(x.des||'Dépense')+'</b><div class="small muted">'+frDate(x.date)+', '+(x.qui==='client'?'payé par le client':'à notre charge')+'</div></div><b style="margin-right:8px">'+eur(x.montant)+'</b><button class="btn sec icon" data-a="delDep" data-i="'+i+'">✕</button></div>';});
  h+='<div class="grid"><div><label>Date</label><input type="date" id="dD" value="'+today()+'"></div><div class="w2"><label>Désignation</label><input id="dT" placeholder="ex : gasoil, disque, benne"></div></div>';
  h+='<div class="grid"><div><label>Montant (€)</label><input id="dM" inputmode="decimal"></div><div><label>Payé par</label><select id="dQ"><option value="nous">Nous (caisse chantier)</option><option value="client">Le client</option></select></div></div><button class="btn" data-a="addDep" style="margin-top:8px">+ Ajouter la dépense</button></div>';
@@ -1046,17 +1055,17 @@ function viewChantiers(){
  if(!list.length)h+='<p class="muted">Aucun chantier. Passe un devis en "signé" pour le voir ici.</p>';
  var tm=0;
  list.forEach(function(d){
-  var b=bilan(d),si=STATUTS.indexOf(d.statut);tm+=b.marge;
+  var b=bilan(d),si=STATUTS.indexOf(d.statut);tm+=b.aFact;
   h+='<a class="row" href="#suivi-'+d.id+'"><div class="main"><b>'+esc(d.client.nom||'Client à définir')+'</b><span class="small muted">'+esc(d.reference||d.numero)+(d.dateChantier?', le '+frDate(d.dateChantier):'')+', '+fq(b.hr)+' h sur '+fq(b.hp)+' h prévues</span>'+bar(b.av)+'</div>';
-  h+='<div class="side"><span class="pill st-'+si+'">'+esc(d.statut)+'</span><div class="small" style="margin-top:4px">'+b.av+' %</div><div class="small"><b style="display:inline">'+eur(b.marge)+'</b> marge</div></div></a>';
+  h+='<div class="side"><span class="pill st-'+si+'">'+esc(d.statut)+'</span><div class="small" style="margin-top:4px">'+b.av+' %</div><div class="small"><b style="display:inline">'+eur(b.aFact)+'</b> à facturer</div>'+(d.statut==='terminé'&&!b.envoye?'<div class="small bad">heures à envoyer</div>':'')+'</div></a>';
  });
- if(list.length)h+='<p class="small muted" style="margin-top:10px">Marge totale affichée : '+eur(tm)+', soit '+eur(tm/2)+' chacun.</p>';
+ if(list.length)h+='<p class="small muted" style="margin-top:10px">Total à facturer (heures réelles) : '+eur(tm)+'</p>';
  return h+'</div>';
 }
 function viewRapport(d){
  var s=suivi(d),st=state.settings,b=bilan(d),h='';
  var js=s.journal.slice().sort(function(a,c){return a.date<c.date?-1:1;});
- h+='<div class="card no-print"><a class="btn sec" href="#suivi-'+d.id+'">← Suivi</a><button class="btn" data-a="print">Imprimer / PDF</button><p class="small muted">Compte rendu sans les prix ni les marges, à envoyer au client. Attends que les photos soient affichées avant d’imprimer.</p></div>';
+ h+='<div class="card no-print"><a class="btn sec" href="#suivi-'+d.id+'">← Suivi</a><button class="btn" data-a="print">Imprimer / PDF</button><p class="small muted">Compte rendu sans les prix, à envoyer au client. Attends que les photos soient affichées avant d’imprimer.</p></div>';
  h+='<div class="docwrap"><div class="doc">';
  h+='<table class="dh"><tr><td><b>'+esc(st.noms||'Vos noms (Réglages)')+'</b><br>'+(st.tel?'Tél : '+esc(st.tel)+'<br>':'')+(st.mail?'Mail : '+esc(st.mail):'')+'</td><td>'+esc(st.adresse1)+'<br>'+esc(st.adresse2)+'</td><td class="dh-r"><b>'+esc(d.client.nom)+'</b><br>'+esc(d.client.adresse)+'<br>'+esc(d.client.ville)+'</td></tr></table>';
  h+='<div class="dbar"><span>COMPTE RENDU DE CHANTIER</span><span>'+esc(d.numero)+'</span><span>'+frDate(today())+'</span></div>';
@@ -1120,6 +1129,7 @@ function setB(path,val){
   if(/^L\.(sortie|retour)\.heures$/.test(path)){var mm=getMachine(curL.machineId);if(mm&&num(val)>num(mm.heures)){mm.heures=String(val);mm.modifieLe=Date.now();}}
   var lp=$('locprix');if(lp)lp.innerHTML=prixTable(locCalc(curL));
  }
+ if(path==='d.statut'&&val==='terminé'&&cur&&!suivi(cur).termineLe)cur.suivi.termineLe=today();
  if(path.indexOf('d.suivi.')===0&&$('bilanBox')&&cur)$('bilanBox').outerHTML=bilanCard(cur);
  if(path==='d.suivi.avancement'&&$('avLbl'))$('avLbl').textContent=Math.round(num(val))+' %';
  updateTotals();saveSoon();
@@ -1143,7 +1153,7 @@ document.addEventListener('change',function(e){
  }
  if(el.getAttribute('data-av')&&cur){
   var av=num(el.value);
-  if(av>=100&&(cur.statut==='signé'||cur.statut==='en cours')){cur.statut='terminé';touch();save();render(true);toast('Chantier passé en terminé');return;}
+  if(av>=100&&(cur.statut==='signé'||cur.statut==='en cours')){cur.statut='terminé';suivi(cur).termineLe=today();touch();save();render(true);toast('Chantier passé en terminé');return;}
   if(av>0&&cur.statut==='signé'){cur.statut='en cours';touch();save();render(true);toast('Chantier passé en cours');return;}
  }
  if(el.getAttribute('data-re')){save();render(true);}
@@ -1352,6 +1362,16 @@ document.addEventListener('click',function(e){
    suivi(cur).depenses.push({id:uid(),date:$('dD').value||today(),des:$('dT').value.trim(),montant:$('dM').value,qui:$('dQ').value});
    touch();save();render(true);toast('Dépense ajoutée');break;
   case 'delDep':if(confirm('Supprimer cette dépense ?')){cur.suivi.depenses.splice(i,1);touch();save();render(true);}break;
+  case 'majHeures':
+   var bh=bilan(cur),hl=[];
+   cur.postes.forEach(function(p){if(p.type!=='client')p.lignes.forEach(function(l){if(isHeure(l.unite))hl.push(l);});});
+   if(!hl.length){toast('Aucune ligne en heures dans le devis');break;}
+   if(!bh.hr){toast('Aucune heure saisie dans le journal');break;}
+   if(!confirm('Mettre '+fq(bh.hr)+' h dans la ligne main d’œuvre du devis et passer à l’indice suivant ?'))break;
+   hl[0].qte=String(Math.round(bh.hr*100)/100).replace('.',',');
+   for(var hk=1;hk<hl.length;hk++)hl[hk].qte='0';
+   if(/^[A-Y]$/.test(cur.indice))cur.indice=String.fromCharCode(cur.indice.charCodeAt(0)+1);
+   cur.date=today();touch();save();render(true);toast('Devis mis à jour, indice '+cur.indice+'. Ouvre l’aperçu pour l’envoyer');break;
   case 'chAll':chF.all=!chF.all;render(true);break;
   case 'syncNow':sync(true);break;
   case 'syncSave':
