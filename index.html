@@ -33,6 +33,7 @@ a{color:#d9731a}
 .good{color:#2e7d32}
 .bad{color:#c0392b}
 input[type=range]{-webkit-appearance:auto;width:100%;margin:10px 0}
+.cgl{-webkit-column-count:2;column-count:2;-webkit-column-gap:18px;column-gap:18px;font-size:9.5px;line-height:1.35}
 .veil{position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:35;display:none}
 .veil.open{display:block}
 main{max-width:1020px;margin:0 auto;padding:14px}
@@ -230,7 +231,7 @@ function $(id){return document.getElementById(id);}
 function toast(msg){var t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);},2200);}
 
 /* ---------- données ---------- */
-function defState(){return {version:1,settings:{noms:'',adresse1:'',adresse2:'',tel:'',mail:'',iban:'',bic:'',taux:'20',deplacement:'80',delaiCommande:'3',limites:'',prixKm:'0.6',condLoc:'Le matériel est remis en bon état de marche et doit être rendu propre, à la date prévue. Toute casse, perte ou usure anormale est à la charge du locataire. La caution est restituée au retour après contrôle.'},catalogue:[],devis:[],seq:{},events:[],machines:[],locations:[],deleted:{},settingsModif:0,clients:[]};}
+function defState(){return {version:1,settings:{noms:'',adresse1:'',adresse2:'',tel:'',mail:'',iban:'',bic:'',taux:'20',deplacement:'80',delaiCommande:'3',limites:'',prixKm:'0.6',cgl:'',siret:'',condLoc:'Le matériel est remis en bon état de marche et doit être rendu propre, à la date prévue. Toute casse, perte ou usure anormale est à la charge du locataire. La caution est restituée au retour après contrôle.'},catalogue:[],devis:[],seq:{},events:[],machines:[],locations:[],deleted:{},settingsModif:0,clients:[]};}
 function load(){
  try{var s=localStorage.getItem(KEY);state=s?JSON.parse(s):defState();}catch(e){state=defState();}
  var d=defState();
@@ -341,7 +342,7 @@ function rappels(){
   out.push({n:Math.min(0,daysBetween(t,td)),date:td,d:d,txt:'Envoyer les heures réelles à '+(d.client.nom||'client')+' ('+fq(bilan(d).hr)+' h)'});
  });
  state.locations.forEach(function(L){
-  if(L.statut==='réservée'&&L.debut){var n=daysBetween(t,L.debut);if(n<=1)out.push({n:n,date:L.debut,loc:L,txt:'Sortie '+mName(L.machineId)+' pour '+(L.client.nom||'client')});}
+  if(L.statut==='réservée'&&L.debut){var n=daysBetween(t,L.debut);if(n<=1)out.push({n:n,date:L.debut,loc:L,txt:'Sortie '+mName(L.machineId)+' pour '+(L.client.nom||'client')+(L.contrat&&L.contrat.sigLoc?'':' (contrat à faire signer)')});}
   if(L.statut==='sortie'){var f=locEnd(L),n3=daysBetween(t,f);if(n3<=1)out.push({n:n3,date:f,loc:L,txt:'Retour '+mName(L.machineId)+' de '+(L.client.nom||'client')});}
   if(L.statut==='rendue'){out.push({n:Math.min(0,daysBetween(t,locEnd(L))),date:t,loc:L,txt:'Encaisser la location de '+(L.client.nom||'client')+', '+eur(locCalc(L).total)});}
  });
@@ -616,10 +617,11 @@ function viewReglages(){
  h+='<label>Noms</label>'+inp('s.noms',s.noms,'ex : DUCROQUET Maxime, WECXSTEEN Jules');
  h+='<div class="grid"><div><label>Adresse</label>'+inp('s.adresse1',s.adresse1)+'</div><div><label>CP et ville</label>'+inp('s.adresse2',s.adresse2)+'</div></div>';
  h+='<div class="grid"><div><label>Téléphone</label>'+inp('s.tel',s.tel)+'</div><div><label>Mail</label>'+inp('s.mail',s.mail)+'</div></div>';
+ h+='<label>SIRET (quand tu en auras un)</label>'+inp('s.siret',s.siret);
  h+='<div class="grid"><div class="w2"><label>IBAN (pied de devis)</label>'+inp('s.iban',s.iban)+'</div><div><label>BIC</label>'+inp('s.bic',s.bic)+'</div></div></div>';
  h+='<div class="card"><h2>Valeurs par défaut</h2><div class="grid"><div><label>Taux horaire main d’œuvre (€ HT)</label>'+numInp('s.taux',s.taux)+'</div><div><label>Forfait déplacement (€ HT)</label>'+numInp('s.deplacement',s.deplacement)+'</div><div><label>Commander les matériaux (jours avant chantier)</label>'+numInp('s.delaiCommande',s.delaiCommande)+'</div></div>';
  h+='<label>Limites de prestation par défaut</label><textarea data-b="s.limites">'+esc(s.limites)+'</textarea></div>';
- h+='<div class="card"><h2>Locations</h2><label>Prix du transport (€ HT par km)</label>'+numInp('s.prixKm',s.prixKm)+'<label>Conditions de location (sur l’état des lieux)</label><textarea data-b="s.condLoc">'+esc(s.condLoc)+'</textarea></div>';
+ h+='<div class="card"><h2>Locations</h2><label>Prix du transport (€ HT par km)</label>'+numInp('s.prixKm',s.prixKm)+'<label>Conditions générales du contrat de location</label><textarea data-b="s.cgl" style="min-height:220px">'+esc(s.cgl||CGL_DEFAUT)+'</textarea><button class="btn sec small" data-a="cglReset" style="margin-top:6px">Remettre le texte par défaut</button><p class="small muted">Modèle de base à faire relire par un professionnel avant de louer à des entreprises.</p><label>Conditions courtes (sur l’état des lieux)</label><textarea data-b="s.condLoc">'+esc(s.condLoc)+'</textarea></div>';
  h+=syncCard();
  h+='<div class="card"><h2>Sauvegarde</h2><p class="small muted">Les données sont dans cet appareil ('+Math.round(used/1024)+' Ko utilisés sur environ 5000). Une sauvegarde de temps en temps ne fait pas de mal, même avec la synchro.</p>';
  h+='<button class="btn" data-a="export">Exporter un fichier</button><button class="btn sec" data-a="showExport">Copier les données</button>';
@@ -822,8 +824,8 @@ function edlBlock(k,e,title){
  return h;
 }
 function viewLoc(L){
- var c=locCalc(L),cf=locConflicts(L),h='';
- h+='<div class="card"><a class="btn sec small" href="#parc">← Parc</a><h1>Location '+esc(L.numero)+'</h1><a class="btn dark" href="#edl-'+L.id+'">État des lieux / PDF</a><button class="btn sec" data-a="locPlan">Voir au planning</button><button class="btn danger" data-a="locDel">Supprimer</button>';
+ contratOf(L);var c=locCalc(L),cf=locConflicts(L),h='';
+ h+='<div class="card"><a class="btn sec small" href="#parc">← Parc</a><h1>Location '+esc(L.numero)+'</h1><a class="btn dark" href="#contrat-'+L.id+'">Contrat / PDF</a><a class="btn dark" href="#edl-'+L.id+'">État des lieux / PDF</a><button class="btn sec" data-a="locPlan">Voir au planning</button><button class="btn danger" data-a="locDel">Supprimer</button>';
  h+='<div class="small muted">Créée le '+stamp(L.creeLe)+', modifiée le '+stamp(L.modifieLe)+'</div></div>';
  h+='<div class="card"><h2>Location</h2><div class="grid"><div class="w2"><label>Machine</label><select data-b="L.machineId" data-re="1"><option value="">Choisir…</option>'+state.machines.map(function(m){return '<option value="'+m.id+'"'+sel(L.machineId,m.id)+'>'+esc(m.nom||'Machine sans nom')+'</option>';}).join('')+'</select></div>';
  h+='<div><label>Statut</label><select data-b="L.statut" data-re="1">'+LSTATUTS.map(function(s){return '<option'+sel(L.statut,s)+'>'+s+'</option>';}).join('')+'</select></div></div>';
@@ -831,6 +833,7 @@ function viewLoc(L){
  if(cf.length)h+='<div class="warn">Attention, machine déjà prévue : '+cf.map(esc).join(' ; ')+'</div>';
  h+='</div>';
  h+='<div class="card"><h2>Client</h2>'+clientPicker('L',L)+'<div class="grid"><div class="w2"><label>Nom</label>'+inp('L.client.nom',L.client.nom)+'</div><div><label>Téléphone</label>'+inp('L.client.tel',L.client.tel,'',' type="tel"')+'</div></div><label>Adresse</label>'+inp('L.client.adresse',L.client.adresse)+'</div>';
+ h+=contratCard(L);
  h+=edlBlock('sortie',L.sortie,'Départ')+edlBlock('retour',L.retour,'Retour');
  h+='<div class="card"><h2>Prix</h2><label class="chk"><input type="checkbox" data-b="L.nettoyage" data-re="1"'+(L.nettoyage?' checked':'')+'>Facturer le nettoyage</label>';
  h+='<div class="grid"><div><label>Transport (km aller retour)</label>'+numInp('L.km',L.km)+'</div><div><label>Carburant (€)</label>'+numInp('L.carburantEur',L.carburantEur)+'</div><div><label>Remise (€)</label>'+numInp('L.remise',L.remise)+'</div></div>';
@@ -1164,6 +1167,52 @@ function viewClient(c){
  return h;
 }
 
+/* ---------- contrat de location ---------- */
+var CGL_DEFAUT=[
+'1. Mise à disposition. Le matériel est remis au locataire en bon état de marche, propre et avec les accessoires indiqués au contrat. Un état des lieux contradictoire est établi et signé au départ et au retour. Il fait foi entre les parties.',
+'2. Utilisation. Le locataire utilise le matériel normalement, conformément à sa destination et aux consignes du constructeur, uniquement au lieu indiqué et par des personnes compétentes. La sous location, le prêt et toute modification du matériel sont interdits sans l’accord écrit du loueur.',
+'3. Durée. La location court de la remise du matériel jusqu’à sa restitution au loueur. Toute journée commencée est due. Un retour en retard est facturé au tarif journalier en vigueur. Une annulation moins de 24 heures avant la date prévue entraîne la facturation d’une journée.',
+'4. Entretien et pannes. Le locataire assure les vérifications courantes (niveaux, nettoyage, graissage si besoin). Toute panne ou anomalie doit être signalée immédiatement au loueur. Aucune réparation ne peut être faite sans son accord.',
+'5. Responsabilité et assurance. Pendant toute la durée de la location, le locataire a la garde du matériel. Il est responsable des dommages causés par le matériel ou subis par celui ci. Il déclare être couvert par une assurance responsabilité civile adaptée à l’usage prévu.',
+'6. Casse, vol et perte. Les réparations rendues nécessaires par une mauvaise utilisation, un choc ou un défaut d’entretien sont à la charge du locataire, sur présentation des justificatifs. En cas de vol, le locataire doit déposer plainte et prévenir le loueur sous 48 heures. Tout matériel perdu, volé ou irréparable est remboursé à sa valeur de remplacement.',
+'7. Consommables et usure. Le carburant manquant au retour et le nettoyage d’un matériel rendu sale peuvent être facturés. L’usure des disques et outils de coupe est mesurée au départ et au retour et facturée au tarif indiqué.',
+'8. Caution. Une caution est versée à la remise du matériel. Elle est restituée après le retour et le contrôle du matériel, déduction faite des sommes éventuellement dues.',
+'9. Paiement. Sauf accord contraire, le prix de la location est payable à la restitution du matériel.',
+'10. Litiges. En cas de désaccord, les parties s’engagent à rechercher d’abord une solution amiable.'
+].join('\n\n');
+function contratCard(L){
+ var b='L.contrat.',c=L.contrat;
+ var h='<div class="card"><h2>Contrat de location</h2><p class="small muted">À faire signer avant la remise du matériel. L’état des lieux de départ et de retour reste un document à part.</p>';
+ h+='<div class="grid"><div class="w2"><label>Pièce d’identité du locataire (type et n°)</label>'+inp(b+'piece',c.piece,'ex : CNI n° …')+'</div><div><label>Mode de caution</label><select data-b="'+b+'cautionMode">'+['','chèque','espèces','virement','empreinte bancaire'].map(function(x){return '<option value="'+x+'"'+sel(c.cautionMode,x)+'>'+(x||'Non précisé')+'</option>';}).join('')+'</select></div></div>';
+ h+='<label>Lieu d’utilisation du matériel</label>'+inp(b+'lieu',c.lieu,'Adresse du chantier');
+ h+='<label>Accessoires fournis</label>'+inp(b+'accessoires',c.accessoires,'ex : clé de serrage, réservoir d’eau, disque 650 mm');
+ h+='<label>Assurance du locataire (facultatif)</label>'+inp(b+'assurance',c.assurance,'Compagnie et n° de contrat');
+ h+='<div class="grid" style="margin-top:10px">'+sigBlock('contrat',c.sigLoc,'Signature du locataire')+sigBlock('loueur',c.sigLoueur,'Signature du loueur')+'</div>';
+ h+='<a class="btn dark" href="#contrat-'+L.id+'" style="margin-top:8px">Contrat / PDF</a></div>';
+ return h;
+}
+function contratOf(L){if(!L.contrat)L.contrat={piece:'',cautionMode:'',lieu:'',accessoires:'',assurance:'',sigLoc:'',sigLoueur:'',date:''};return L.contrat;}
+function viewContrat(L){
+ var s=state.settings,c=contratOf(L),m=getMachine(L.machineId)||{nom:'?',marque:'',modele:'',serie:''},k=locCalc(L),h='';
+ var mm=[m.marque,m.modele].filter(function(x){return x;}).join(' ');
+ h+='<div class="card no-print"><a class="btn sec" href="#location-'+L.id+'">← Location</a><button class="btn" data-a="print">Imprimer / PDF</button><a class="btn sec" href="#edl-'+L.id+'">État des lieux</a><p class="small muted">Sur iPad : Imprimer, puis écarte deux doigts sur l’aperçu pour obtenir le PDF.</p></div>';
+ h+='<div class="docwrap"><div class="doc">';
+ h+='<div class="dbar" style="border-top:1px solid #333;font-size:14px"><span>CONTRAT DE LOCATION DE MATÉRIEL</span><span>'+esc(L.numero)+'</span></div>';
+ h+='<table class="dh" style="margin-top:8px"><tr><td style="width:50%"><b>LE LOUEUR</b><br>'+esc(s.noms||'Vos noms (Réglages)')+'<br>'+esc(s.adresse1)+(s.adresse2?', '+esc(s.adresse2):'')+(s.tel?'<br>Tél : '+esc(s.tel):'')+(s.mail?'<br>'+esc(s.mail):'')+(s.siret?'<br>SIRET : '+esc(s.siret):'')+'</td>';
+ h+='<td><b>LE LOCATAIRE</b><br>'+esc(L.client.nom||'')+(L.client.adresse?'<br>'+esc(L.client.adresse):'')+(L.client.tel?'<br>Tél : '+esc(L.client.tel):'')+(c.piece?'<br>Pièce d’identité : '+esc(c.piece):'')+(c.assurance?'<br>Assurance : '+esc(c.assurance):'')+'</td></tr></table>';
+ h+='<div class="dinfo"><p><b>Matériel :</b> '+esc(m.nom)+(mm?', '+esc(mm):'')+(m.serie?', n° de série '+esc(m.serie):'')+'</p>'+(c.accessoires?'<p><b>Accessoires :</b> '+esc(c.accessoires)+'</p>':'');
+ h+='<p><b>Période :</b> '+periode(L)+' ('+k.days+' jour'+(k.days>1?'s':'')+')</p>'+(c.lieu?'<p><b>Lieu d’utilisation :</b> '+esc(c.lieu)+'</p>':'');
+ h+='<p><b>Caution :</b> '+(num(L.caution)?eur(L.caution):'aucune')+(c.cautionMode?' par '+esc(c.cautionMode):'')+'</p>';
+ h+='<p>Un état des lieux de départ et de retour (réf. '+esc(L.numero)+') est établi et signé par les parties. Il fait partie du présent contrat.</p></div>';
+ h+='<table class="dt"><thead><tr><th>Désignation</th><th class="r" style="width:60px">Qté</th><th class="c" style="width:70px">U</th><th class="r" style="width:84px">Prix</th><th class="r" style="width:92px">Total</th></tr></thead><tbody>';
+ k.lines.forEach(function(l){h+='<tr><td>'+esc(l.des)+'</td><td class="r">'+fq(l.q)+'</td><td class="c">'+esc(l.u)+'</td><td class="r">'+eur(l.pu)+'</td><td class="r">'+eur(l.q*l.pu)+'</td></tr>';});
+ h+='<tr class="st"><td colspan="4" class="r">Total de la location</td><td class="r">'+eur(k.total)+'</td></tr></tbody></table>';
+ h+='<p class="small" style="margin:4px 0 0">Les frais d’usure, de carburant ou de réparation constatés au retour s’ajoutent selon l’état des lieux.</p>';
+ h+='<div class="dbox cgl"><b>CONDITIONS GÉNÉRALES DE LOCATION</b>\n'+esc(s.cgl||CGL_DEFAUT)+'</div>';
+ h+='<div class="dsig"><div>Le loueur<br><span class="small">Fait le '+frDate(c.date||L.sortie.date||today())+'</span><br>'+(c.sigLoueur?'<img src="'+c.sigLoueur+'" alt="">':'')+'</div><div>Le locataire<br><span class="small">Lu et approuvé, conditions générales acceptées</span><br>'+(c.sigLoc?'<img src="'+c.sigLoc+'" alt="">':'')+'</div></div>';
+ return h+'</div></div>';
+}
+
 /* ---------- rendu et routage ---------- */
 function render(keep){
  flush();
@@ -1182,6 +1231,7 @@ function render(keep){
  else if(h==='parc'){cur=null;app.innerHTML=viewParc();}
  else if(h.indexOf('machine-')===0){cur=null;curM=getMachine(h.slice(8));if(!curM){location.hash='#parc';return;}app.innerHTML=viewMachine(curM);}
  else if(h.indexOf('location-')===0){cur=null;curL=getLoc(h.slice(9));if(!curL){location.hash='#parc';return;}app.innerHTML=viewLoc(curL);}
+ else if(h.indexOf('contrat-')===0){cur=null;curL=getLoc(h.slice(8));if(!curL){location.hash='#parc';return;}app.innerHTML=viewContrat(curL);}
  else if(h.indexOf('edl-')===0){cur=null;curL=getLoc(h.slice(4));if(!curL){location.hash='#parc';return;}app.innerHTML=viewEdl(curL);}
  else if(h==='catalogue'){cur=null;app.innerHTML=viewCatalogue();}
  else if(h==='reglages'){cur=null;app.innerHTML=viewReglages();bindImport();}
@@ -1255,7 +1305,7 @@ $('burger').addEventListener('click',function(){if($('drawer').classList.contain
 $('veil').addEventListener('click',closeMenu);
 $('drawer').addEventListener('click',function(e){if(e.target.closest&&e.target.closest('a'))closeMenu();});
 function markMenu(h){
- var sec=h.indexOf('devis-')===0||h.indexOf('apercu-')===0?'devislist':(h.indexOf('suivi-')===0||h.indexOf('rapport-')===0)?'chantiers':h.indexOf('client-')===0?'clients':(h.indexOf('machine-')===0||h.indexOf('location-')===0||h.indexOf('edl-')===0)?'parc':h;
+ var sec=h.indexOf('devis-')===0||h.indexOf('apercu-')===0?'devislist':(h.indexOf('suivi-')===0||h.indexOf('rapport-')===0)?'chantiers':h.indexOf('client-')===0?'clients':(h.indexOf('contrat-')===0||h.indexOf('machine-')===0||h.indexOf('location-')===0||h.indexOf('edl-')===0)?'parc':h;
  var as=$('drawer').querySelectorAll('a');
  for(var i=0;i<as.length;i++){var t=as[i].getAttribute('href').slice(1);if(t===sec||(sec===''&&t==='home'))as[i].classList.add('on');else as[i].classList.remove('on');}
 }
@@ -1267,7 +1317,7 @@ $('modal').addEventListener('click',function(e){if(e.target.id==='modal')closeMo
 
 /* signature */
 function openSig(who){
- showModal('<h2>Signature '+(who==='presta'?'du prestataire':'du client')+'</h2><p class="small muted">Signe avec le doigt dans le cadre.</p><canvas id="sigc" width="700" height="260"></canvas><button class="btn sec" data-a="sigClear">Recommencer</button><button class="btn" data-a="sigOk" data-w="'+who+'">Valider</button><button class="btn sec" data-a="close">Annuler</button>');
+ showModal('<h2>Signature '+(who==='presta'?'du prestataire':who==='loueur'?'du loueur':who==='contrat'?'du locataire':'du client')+'</h2><p class="small muted">Signe avec le doigt dans le cadre.</p><canvas id="sigc" width="700" height="260"></canvas><button class="btn sec" data-a="sigClear">Recommencer</button><button class="btn" data-a="sigOk" data-w="'+who+'">Valider</button><button class="btn sec" data-a="close">Annuler</button>');
  var c=$('sigc'),x=c.getContext('2d'),drawing=false;
  x.lineWidth=3.5;x.lineCap='round';x.lineJoin='round';x.strokeStyle='#14286e';c._has=false;
  function pos(e){var r=c.getBoundingClientRect(),t=e.touches&&e.touches.length?e.touches[0]:e;return {x:(t.clientX-r.left)*c.width/r.width,y:(t.clientY-r.top)*c.height/r.height};}
@@ -1408,11 +1458,12 @@ document.addEventListener('click',function(e){
    else{state.catalogue.push({id:uid(),des:String(l.des).trim(),unite:l.unite,pu:l.pu,fournisseur:cur.postes[i].fournisseur||'',modifieLe:Date.now()});toast('Ajouté au catalogue');}
    save();refreshDatalists();break;
   case 'sig':openSig(w);break;
-  case 'clrSig':if(w==='sortie'||w==='retour'){curL[w].sig='';curL.modifieLe=Date.now();}else{if(w==='client')cur.sigClient='';else cur.sigPresta='';touch();}save();render(true);break;
+  case 'clrSig':if(w==='contrat'||w==='loueur'){contratOf(curL)[w==='contrat'?'sigLoc':'sigLoueur']='';curL.modifieLe=Date.now();}
+   else if(w==='sortie'||w==='retour'){curL[w].sig='';curL.modifieLe=Date.now();}else{if(w==='client')cur.sigClient='';else cur.sigPresta='';touch();}save();render(true);break;
   case 'sigClear':var cv=$('sigc');cv.getContext('2d').clearRect(0,0,cv.width,cv.height);cv._has=false;break;
   case 'sigOk':
    var cc=$('sigc');
-   if(cc._has){var img=cc.toDataURL('image/png');if(w==='sortie'||w==='retour'){curL[w].sig=img;if(!curL[w].date)curL[w].date=today();curL.modifieLe=Date.now();}else{if(w==='client')cur.sigClient=img;else cur.sigPresta=img;if(!cur.sigDate)cur.sigDate=today();touch();}save();}
+   if(cc._has){var img=cc.toDataURL('image/png');if(w==='contrat'||w==='loueur'){var ct=contratOf(curL);ct[w==='contrat'?'sigLoc':'sigLoueur']=img;if(!ct.date)ct.date=today();curL.modifieLe=Date.now();}else if(w==='sortie'||w==='retour'){curL[w].sig=img;if(!curL[w].date)curL[w].date=today();curL.modifieLe=Date.now();}else{if(w==='client')cur.sigClient=img;else cur.sigPresta=img;if(!cur.sigDate)cur.sigDate=today();touch();}save();}
    closeModal();render(true);break;
   case 'close':closeModal();break;
   case 'calc':openCalc();break;
@@ -1510,6 +1561,7 @@ document.addEventListener('click',function(e){
    if(ex2){co.clientId=ex2.id;co.modifieLe=Date.now();save();render(true);toast('Lié à la fiche existante');break;}
    var nc2=w==='L'?newClient({nom:co.client.nom,tel:co.client.tel,adresse:co.client.adresse}):newClient(co.client);
    co.clientId=nc2.id;co.modifieLe=Date.now();save();render(true);toast('Client enregistré');break;
+  case 'cglReset':if(confirm('Remettre les conditions générales par défaut ?')){s.cgl='';state.settingsModif=Date.now();save();render(true);}break;
   case 'chAll':chF.all=!chF.all;render(true);break;
   case 'syncNow':sync(true);break;
   case 'syncSave':
