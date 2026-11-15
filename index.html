@@ -34,6 +34,16 @@ a{color:#d9731a}
 .bad{color:#c0392b}
 input[type=range]{-webkit-appearance:auto;width:100%;margin:10px 0}
 .cgl{-webkit-column-count:2;column-count:2;-webkit-column-gap:18px;column-gap:18px;font-size:9.5px;line-height:1.35}
+.renta-top{display:flex;flex-wrap:wrap;align-items:center}
+.renta-donut{flex:0 0 auto;margin:0 20px 8px 0}
+.renta-kpi{flex:1 1 230px}
+.renta-kpi>div{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee}
+.renta-kpi>div.legend{display:block;border:0}
+.hbar{display:flex;align-items:center;margin:8px 0}
+.hb-l{flex:0 0 130px;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hb-t{flex:1;height:16px;margin:0 8px}
+.hb-t i{display:block;height:100%;background:#eb6834;border-radius:0 4px 4px 0}
+.hb-v{flex:0 0 96px;text-align:right;font-weight:600;font-size:14px}
 .veil{position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:35;display:none}
 .veil.open{display:block}
 main{max-width:1020px;margin:0 auto;padding:14px}
@@ -189,12 +199,13 @@ textarea{min-height:64px;resize:vertical}
 <div class="veil no-print" id="veil"></div>
 <nav class="drawer no-print" id="drawer">
  <div class="dhead">Chantiers</div>
- <a href="#home"><span class="ic">🏠</span>Accueil</a>
+ <a href="#home"><span class="ic">🏠</span>Tableau de bord</a>
  <a href="#devislist"><span class="ic">📄</span>Devis</a>
  <a href="#chantiers"><span class="ic">🏗️</span>Chantiers</a>
  <a href="#clients"><span class="ic">👤</span>Clients</a>
  <a href="#planning"><span class="ic">📅</span>Planning</a>
  <a href="#parc"><span class="ic">🚜</span>Parc et locations</a>
+ <a href="#renta"><span class="ic">📈</span>Rentabilité</a>
  <a href="#catalogue"><span class="ic">📋</span>Catalogue</a>
  <a href="#reglages"><span class="ic">⚙️</span>Réglages</a>
 </nav>
@@ -354,18 +365,9 @@ function whenTag(n){if(n<0)return '<span class="when late">Retard '+(-n)+' j</sp
 
 /* ---------- vues ---------- */
 function viewHome(){
- var r=rappels(),attente=0,enCours=0,ca=0,y=String(new Date().getFullYear());
- state.devis.forEach(function(d){
-  var t=totaux(d);
-  if(d.statut==='signé'||d.statut==='en cours'||d.statut==='terminé'){attente+=t.facture;}
-  if(d.statut==='signé'||d.statut==='en cours')enCours++;
-  if(d.statut==='payé'&&String(d.date).slice(0,4)===y)ca+=t.facture;
- });
- state.locations.forEach(function(L){if(L.statut==='rendue'||L.statut==='sortie')attente+=locCalc(L).reste;if(L.statut==='payée'&&String(L.debut).slice(0,4)===y)ca+=locCalc(L).total;});
- var h='<div class="card"><h1>Accueil</h1><button class="btn" data-a="new">+ Nouveau devis</button><button class="btn dark" data-a="locNew">+ Location</button></div>';
- h+='<div class="stats"><div class="stat"><div class="v">'+eur(attente)+'</div><div class="l">En attente de paiement</div></div>';
- h+='<div class="stat"><div class="v">'+enCours+'</div><div class="l">Chantiers signés ou en cours</div></div>';
- h+='<div class="stat"><div class="v">'+eur(ca)+'</div><div class="l">Encaissé en '+y+'</div></div></div>';
+ var r=rappels();
+ var h='<div class="card"><h1>Tableau de bord</h1><button class="btn" data-a="new">+ Nouveau devis</button><button class="btn dark" data-a="locNew">+ Location</button></div>';
+ h+=dashboard();
  h+='<div class="card"><h2>À faire</h2>';
  if(!r.length)h+='<p class="muted">Rien d’urgent. Les rappels apparaissent ici pour les devis signés ou en cours.</p>';
  r.forEach(function(x){
@@ -790,6 +792,7 @@ function viewMachine(m){
  h+='<div class="card"><a class="btn sec small" href="#parc">← Parc</a><h1>'+esc(m.nom||'Nouvelle machine')+'</h1><button class="btn dark" data-a="locNew" data-id="'+m.id+'">+ Louer cette machine</button><button class="btn danger" data-a="mDel">Supprimer</button></div>';
  h+='<div class="card"><h2>Fiche</h2><div class="grid"><div class="w2"><label>Nom</label>'+inp('m.nom',m.nom,'ex : Scie de sol 650')+'</div><div><label>Type</label>'+inp('m.type',m.type,'ex : scie de sol')+'</div></div>';
  h+='<div class="grid"><div><label>Marque</label>'+inp('m.marque',m.marque)+'</div><div><label>Modèle</label>'+inp('m.modele',m.modele)+'</div><div><label>N° de série</label>'+inp('m.serie',m.serie)+'</div></div>';
+ h+='<div class="grid"><div><label>Prix d’achat (€)</label>'+numInp('m.prixAchat',m.prixAchat)+'</div><div><label>Date d’achat</label><input type="date" data-b="m.dateAchat" value="'+esc(m.dateAchat||'')+'"></div><div><a class="btn sec small" href="#renta" style="margin-top:26px">Voir la rentabilité</a></div></div>';
  h+='<div class="grid"><div><label>Année</label>'+numInp('m.annee',m.annee)+'</div><div><label>Compteur actuel (h)</label>'+numInp('m.heures',m.heures)+'</div><div><label>Entretien toutes les (h)</label>'+numInp('m.intervalle',m.intervalle,'ex : 50')+'</div></div>';
  h+='<label>Photo</label><div class="phgrid">'+(m.photo?thumb(m.photo,'machine',0):'')+'</div><input type="file" accept="image/*" data-ph-add="machine">';
  h+='<label>Notes</label><textarea data-b="m.note" placeholder="Accessoires, consignes, particularités…">'+esc(m.note)+'</textarea></div>';
@@ -930,8 +933,8 @@ function summary(){
  state.devis.forEach(function(d){var t=totaux(d);D.push([v(d.numero),frDate(d.date),v(d.statut),v(d.client.nom),v(d.reference),v(d.lieu),frDate(d.dateChantier),r2(t.client),r2(t.facture),r2(t.global),frDate(d.echeance)].concat((function(){var b=bilan(d);return [b.av,r2(b.hp),r2(b.hr),r2(b.dn),r2(b.aFact),d.statut==='terminé'||d.statut==='payé'?(b.envoye?'oui':'non'):''];})()).concat([stamp(d.modifieLe)]));});
  var Lo=[['N° location','Machine','Client','Téléphone','Du','Au','Jours','Statut','Total HT','Caution','Caution rendue']];
  state.locations.forEach(function(L){var c=locCalc(L);Lo.push([v(L.numero),mName(L.machineId),v(L.client.nom),v(L.client.tel),frDate(L.debut),frDate(locEnd(L)),c.days,v(L.statut),r2(c.total),r2(L.caution),L.cautionRendue?'oui':'non']);});
- var M=[['Machine','Marque','Modèle','N° série','Compteur (h)','Jour','Week end','Semaine','Caution','Entretien à prévoir']];
- state.machines.forEach(function(m){var t=m.tarifs||{};M.push([v(m.nom),v(m.marque),v(m.modele),v(m.serie),v(m.heures),v(t.jour),v(t.weekend),v(t.semaine),v(t.caution),entretienDu(m)?'oui':'']);});
+ var M=[['Machine','Marque','Modèle','N° série','Compteur (h)','Jour','Week end','Semaine','Caution','Entretien à prévoir','Prix d’achat','CA locations','Jours loués','% remboursé']];
+ state.machines.forEach(function(m){var t=m.tarifs||{};M.push([v(m.nom),v(m.marque),v(m.modele),v(m.serie),v(m.heures),v(t.jour),v(t.weekend),v(t.semaine),v(t.caution),entretienDu(m)?'oui':''].concat((function(){var st=machineStats(m);return [r2(st.pa),r2(st.ca),st.jours,st.pct==null?'':Math.round(st.pct)];})()));});
  var P=[['Du','Au','Type','Titre','Machine','Client','Lieu','Note']];
  state.events.slice().sort(function(a,b){return a.debut<b.debut?-1:1;}).forEach(function(e){P.push([frDate(e.debut),frDate(evEnd(e)),TYPES[e.type]||v(e.type),v(e.titre),v(e.machine),v(e.client),v(e.lieu),v(e.note)]);});
  var C=[['Désignation','Unité','PU HT','Fournisseur']];
@@ -1226,6 +1229,120 @@ function viewContrat(L){
  return h+'</div></div>';
 }
 
+/* ---------- tableau de bord et rentabilité ---------- */
+var C_LOC='#2a78d6',C_CH='#eb6834',C_TRACK='#e4e3e0';
+var MOIS_C=['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+function eurK(n){n=num(n);return Math.abs(n)>=10000?(Math.round(n/100)/10).toLocaleString('fr-FR')+' k€':Math.round(n).toLocaleString('fr-FR')+' €';}
+function revenus(){
+ var out=[];
+ state.devis.forEach(function(d){
+  if(d.statut!=='terminé'&&d.statut!=='payé')return;
+  var dt=(d.suivi&&d.suivi.termineLe)||d.dateChantier||d.date;
+  out.push({k:'ch',date:dt,montant:totaux(d).facture});
+ });
+ state.locations.forEach(function(L){
+  if(L.statut!=='rendue'&&L.statut!=='payée')return;
+  out.push({k:'loc',date:locEnd(L),montant:locCalc(L).total,mid:L.machineId,days:locDays(L)});
+ });
+ return out;
+}
+function machineStats(m){
+ var ca=0,jours=0,att=0,ent=0,n=0;
+ state.locations.forEach(function(L){
+  if(L.machineId!==m.id||L.statut==='annulée'||L.statut==='réservée')return;
+  var c=locCalc(L);jours+=c.days;n++;
+  if(L.statut==='rendue'||L.statut==='payée')ca+=c.total;else att+=c.total;
+ });
+ (m.entretien||[]).forEach(function(e){ent+=num(e.cout);});
+ var pa=num(m.prixAchat),net=ca-ent,since=m.dateAchat?Math.max(1,daysBetween(m.dateAchat,today())+1):0;
+ return {ca:ca,jours:jours,n:n,ent:ent,net:net,pa:pa,pct:pa?net/pa*100:null,reste:pa?Math.max(0,pa-net):0,occ:since?Math.min(100,jours/since*100):null,since:since,att:att};
+}
+function donut(pct,size,center,sub){
+ var r=size/2-12,c=2*Math.PI*r,p=Math.max(0,Math.min(100,pct||0)),len=c*p/100,cx=size/2;
+ var h='<svg viewBox="0 0 '+size+' '+size+'" width="'+size+'" height="'+size+'" role="img" aria-label="'+esc(center+' '+(sub||''))+'">';
+ h+='<circle cx="'+cx+'" cy="'+cx+'" r="'+r+'" fill="none" stroke="'+C_TRACK+'" stroke-width="16"><title>Reste à rembourser</title></circle>';
+ if(p>0)h+='<circle cx="'+cx+'" cy="'+cx+'" r="'+r+'" fill="none" stroke="'+C_CH+'" stroke-width="16" stroke-dasharray="'+len.toFixed(2)+' '+c.toFixed(2)+'" stroke-linecap="'+(p>=100?'butt':'round')+'" transform="rotate(-90 '+cx+' '+cx+')"><title>Remboursé : '+Math.round(pct)+' %</title></circle>';
+ h+='<text x="'+cx+'" y="'+(cx+(sub?2:7))+'" text-anchor="middle" font-size="'+(size>140?24:19)+'" font-weight="700" fill="#222">'+esc(center)+'</text>';
+ if(sub)h+='<text x="'+cx+'" y="'+(cx+20)+'" text-anchor="middle" font-size="11" fill="#666">'+esc(sub)+'</text>';
+ return h+'</svg>';
+}
+function caChart(){
+ var now=new Date(),months=[],i,rv=revenus(),narrow=(window.innerWidth||1000)<600,NM=narrow?6:12;
+ for(i=NM-1;i>=0;i--){var d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push({key:d.getFullYear()+'-'+pad(d.getMonth()+1),lab:MOIS_C[d.getMonth()],y:d.getFullYear(),loc:0,ch:0});}
+ rv.forEach(function(r){var k=String(r.date||'').slice(0,7);months.forEach(function(m){if(m.key===k)m[r.k]+=r.montant;});});
+ var max=0;months.forEach(function(m){max=Math.max(max,m.loc+m.ch);});
+ var W=narrow?360:620,H=narrow?200:210,L=narrow?48:48,B=26,T=14,pw=W-L-8,ph=H-B-T,bw=pw/NM,barw=Math.min(30,bw-10),step=niceStep(max/4),top=step*4||1;
+ var h='<svg viewBox="0 0 '+W+' '+H+'" width="100%" role="img" aria-label="Chiffre d’affaires des 12 derniers mois" style="display:block;max-width:100%">';
+ for(i=0;i<=4;i++){var gy=T+ph-ph*i/4;h+='<line x1="'+L+'" x2="'+(W-8)+'" y1="'+gy+'" y2="'+gy+'" stroke="#ececea" stroke-width="1"/><text x="'+(L-6)+'" y="'+(gy+4)+'" text-anchor="end" font-size="10" fill="#777">'+eurK(step*i)+'</text>';}
+ months.forEach(function(m,j){
+  var x=L+bw*j+(bw-barw)/2,base=T+ph,hl=m.loc/top*ph,hc=m.ch/top*ph,tot=m.loc+m.ch;
+  var tip=m.lab+' '+m.y+' : '+eur(tot)+' (locations '+eur(m.loc)+', chantiers '+eur(m.ch)+')';
+  h+='<g><title>'+esc(tip)+'</title><rect x="'+(L+bw*j)+'" y="'+T+'" width="'+bw+'" height="'+ph+'" fill="transparent"/>';
+  if(hl>0)h+=bar2(x,base-hl,barw,hl,C_LOC,hc<=0);
+  if(hc>0)h+=bar2(x,base-hl-hc-(hl>0?2:0),barw,hc,C_CH,true);
+  h+='</g>';
+  h+='<text x="'+(x+barw/2)+'" y="'+(H-8)+'" text-anchor="middle" font-size="10" fill="'+(j===NM-1?'#222':'#777')+'"'+(j===NM-1?' font-weight="700"':'')+'>'+m.lab+'</text>';
+ });
+ h+='<line x1="'+L+'" x2="'+(W-8)+'" y1="'+(T+ph)+'" y2="'+(T+ph)+'" stroke="#bbb" stroke-width="1"/></svg>';
+ var cur=months[NM-1],prev=months[NM-2];
+ var leg='<div class="legend" style="margin:4px 0 0"><span><i style="background:'+C_CH+'"></i>Chantiers</span><span><i style="background:'+C_LOC+'"></i>Locations</span><span class="muted">Survole ou touche une barre pour le détail</span></div>';
+ return {svg:h+leg,cur:cur,prev:prev,max:max,n:NM};
+}
+function bar2(x,y,w,hgt,col,roundTop){
+ var r=Math.min(4,hgt/2,w/2);
+ if(!roundTop)return '<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+hgt.toFixed(1)+'" fill="'+col+'"/>';
+ return '<path d="M'+x.toFixed(1)+','+(y+hgt).toFixed(1)+' V'+(y+r).toFixed(1)+' Q'+x.toFixed(1)+','+y.toFixed(1)+' '+(x+r).toFixed(1)+','+y.toFixed(1)+' H'+(x+w-r).toFixed(1)+' Q'+(x+w).toFixed(1)+','+y.toFixed(1)+' '+(x+w).toFixed(1)+','+(y+r).toFixed(1)+' V'+(y+hgt).toFixed(1)+' Z" fill="'+col+'"/>';
+}
+function niceStep(v){if(v<=0)return 250;var p=Math.pow(10,Math.floor(Math.log(v)/Math.LN10)),n=v/p;return (n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*p;}
+function dashboard(){
+ var y=String(new Date().getFullYear()),rv=revenus(),an=0,anLoc=0,anCh=0,att=0,enCours=0,louees=0,t=today();
+ rv.forEach(function(r){if(String(r.date).slice(0,4)===y){an+=r.montant;if(r.k==='loc')anLoc+=r.montant;else anCh+=r.montant;}});
+ state.devis.forEach(function(d){if(d.statut==='terminé')att+=totaux(d).facture;if(d.statut==='signé'||d.statut==='en cours')enCours++;});
+ state.locations.forEach(function(L){if(L.statut==='rendue'||L.statut==='sortie')att+=locCalc(L).reste;if(L.statut==='sortie'||(L.statut==='réservée'&&L.debut<=t&&t<=locEnd(L)))louees++;});
+ var c=caChart(),h='';
+ h+='<div class="stats">';
+ h+='<div class="stat"><div class="v">'+eur(c.cur.loc+c.cur.ch)+'</div><div class="l">Chiffre d’affaires de '+c.cur.lab+' '+c.cur.y+'</div></div>';
+ h+='<div class="stat"><div class="v">'+eur(an)+'</div><div class="l">Depuis janvier '+y+'</div></div>';
+ h+='<div class="stat"><div class="v">'+eur(att)+'</div><div class="l">Reste à encaisser</div></div>';
+ h+='<div class="stat"><div class="v">'+enCours+' <span style="font-size:14px;color:#ccc">chantier'+(enCours>1?'s':'')+'</span> · '+louees+' <span style="font-size:14px;color:#ccc">location'+(louees>1?'s':'')+'</span></div><div class="l">En cours aujourd’hui</div></div></div>';
+ h+='<div class="card"><div class="plan-head"><h2 style="margin:0">Chiffre d’affaires, '+c.n+' derniers mois</h2><a class="btn sec small" href="#renta" style="margin:0">Rentabilité machines</a></div>';
+ h+='<p class="small muted" style="margin:4px 0 8px">Chantiers terminés et locations rendues. Cette année : '+eur(anCh)+' de chantiers, '+eur(anLoc)+' de locations.</p>';
+ h+=(c.max?c.svg:'<p class="muted">Le graphique se remplira avec tes premiers chantiers terminés et locations rendues.</p>')+'</div>';
+ return h;
+}
+function viewRenta(){
+ var ms=state.machines.map(function(m){return {m:m,s:machineStats(m)};}),inv=0,net=0,ca=0,jours=0;
+ ms.forEach(function(x){inv+=x.s.pa;if(x.s.pa)net+=x.s.net;ca+=x.s.ca;jours+=x.s.jours;});
+ var gp=inv?net/inv*100:0,h='';
+ h+='<div class="card"><h1>Rentabilité des machines</h1><p class="small muted">Ce que chaque machine a rapporté (locations rendues ou payées, moins son entretien) comparé à son prix d’achat. Renseigne le prix d’achat dans chaque fiche machine.</p></div>';
+ if(!ms.length)return h+'<div class="card"><p class="muted">Ajoute tes machines dans Parc et locations.</p></div>';
+ h+='<div class="card"><div class="renta-top"><div class="renta-donut">'+donut(gp,180,inv?Math.round(gp)+' %':'?',inv?'du parc remboursé':'prix d’achat manquant')+'</div><div class="renta-kpi">';
+ h+='<div><span>Investi dans le parc</span><b>'+eur(inv)+'</b></div><div><span>Rapporté par ces machines (net d’entretien)</span><b>'+eur(net)+'</b></div><div><span>Reste à rembourser</span><b>'+eur(Math.max(0,inv-net))+'</b></div><div><span>Jours de location au total</span><b>'+fq(jours)+'</b></div>';
+ h+='<div class="legend" style="margin-top:8px"><span><i style="background:'+C_CH+'"></i>Remboursé</span><span><i style="background:'+C_TRACK+'"></i>Reste à rembourser</span></div></div></div></div>';
+ var maxca=0;ms.forEach(function(x){maxca=Math.max(maxca,x.s.ca);});
+ if(maxca){
+  h+='<div class="card"><h2>Chiffre d’affaires par machine</h2>';
+  ms.slice().sort(function(a,b){return b.s.ca-a.s.ca;}).forEach(function(x){
+   var w=Math.max(1,x.s.ca/maxca*100);
+   h+='<div class="hbar" title="'+esc(x.m.nom)+' : '+eur(x.s.ca)+', '+fq(x.s.jours)+' jours loués"><div class="hb-l">'+esc(x.m.nom||'Machine')+'</div><div class="hb-t"><i style="width:'+w.toFixed(1)+'%"></i></div><div class="hb-v">'+eur(x.s.ca)+'</div></div>';
+  });
+  h+='</div>';
+ }
+ ms.forEach(function(x){
+  var s=x.s,m=x.m;
+  h+='<div class="card"><div class="renta-top"><div class="renta-donut">'+donut(s.pct,140,s.pa?Math.round(s.pct)+' %':'?',s.pa?(s.pct>=100?'remboursée':'remboursé'):'prix manquant')+'</div><div class="renta-kpi">';
+  h+='<h2 style="margin:0 0 6px"><a href="#machine-'+m.id+'" style="color:#222;text-decoration:none">'+esc(m.nom||'Machine')+' ›</a></h2>';
+  h+='<div><span>Prix d’achat</span><b>'+(s.pa?eur(s.pa):'<a href="#machine-'+m.id+'">à renseigner</a>')+'</b></div>';
+  h+='<div><span>Locations rendues ou payées</span><b>'+eur(s.ca)+'</b></div>';
+  if(s.ent)h+='<div><span>Entretien</span><b>'+eur(-s.ent)+'</b></div>';
+  if(s.pa)h+='<div><span>'+(s.net>=s.pa?'Bénéfice après remboursement':'Reste à rembourser')+'</span><b>'+eur(Math.abs(s.pa-s.net))+'</b></div>';
+  h+='<div><span>Jours loués ('+s.n+' location'+(s.n>1?'s':'')+')</span><b>'+fq(s.jours)+(s.occ!=null?' <span class="muted small">('+Math.round(s.occ)+' % du temps)</span>':'')+'</b></div>';
+  if(s.att)h+='<div><span>En cours ou réservé</span><b>'+eur(s.att)+'</b></div>';
+  h+='</div></div></div>';
+ });
+ return h;
+}
+
 /* ---------- rendu et routage ---------- */
 function render(keep){
  flush();
@@ -1241,6 +1358,7 @@ function render(keep){
  else if(h.indexOf('rapport-')===0){cur=getDevis(h.slice(8));if(!cur){location.hash='#chantiers';return;}app.innerHTML=viewRapport(cur);}
  else if(h==='clients'){cur=null;app.innerHTML=viewClients();$('clQ').addEventListener('input',function(){clF.q=this.value;$('clList').innerHTML=clientListHtml();});}
  else if(h.indexOf('client-')===0){cur=null;curC=getClient(h.slice(7));if(!curC){location.hash='#clients';return;}app.innerHTML=viewClient(curC);}
+ else if(h==='renta'){cur=null;app.innerHTML=viewRenta();}
  else if(h==='parc'){cur=null;app.innerHTML=viewParc();}
  else if(h.indexOf('machine-')===0){cur=null;curM=getMachine(h.slice(8));if(!curM){location.hash='#parc';return;}app.innerHTML=viewMachine(curM);}
  else if(h.indexOf('location-')===0){cur=null;curL=getLoc(h.slice(9));if(!curL){location.hash='#parc';return;}app.innerHTML=viewLoc(curL);}
