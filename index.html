@@ -138,6 +138,13 @@ textarea{min-height:64px;resize:vertical}
  .more{font-size:9px}
  .brand{font-size:16px}
 }
+.phgrid{display:flex;flex-wrap:wrap;margin:6px -4px}
+.thumb{position:relative;width:96px;height:96px;margin:4px;border-radius:8px;overflow:hidden;background:#e4e3e0}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb .btn{position:absolute;top:3px;right:3px;margin:0;padding:3px 7px;font-size:12px}
+.mthumb{width:60px;height:60px;border-radius:8px;object-fit:cover;background:#e4e3e0;margin-right:12px;flex:0 0 60px;display:block}
+.edlph img{max-width:32%;max-height:210px;width:auto;margin:.5%;vertical-align:top}
+@media (max-width:430px){.brand{display:none}.top nav a:first-child{margin-left:0}}
 @media (max-width:600px){
  .lhead{display:none}
  .l-des{flex:1 1 100%}
@@ -158,7 +165,7 @@ textarea{min-height:64px;resize:vertical}
 <body>
 <header class="top no-print">
  <a href="#home" class="brand">Chantiers</a>
- <nav><a href="#home">Accueil</a><a href="#planning">Planning</a><a href="#catalogue">Catalogue</a><a href="#reglages">Réglages</a></nav>
+ <nav><a href="#home">Accueil</a><a href="#planning">Planning</a><a href="#parc">Parc</a><a href="#catalogue">Catalogue</a><a href="#reglages">Réglages</a></nav>
 </header>
 <main id="app"></main>
 <div id="modal" class="modal no-print hidden"><div class="modal-box" id="modal-box"></div></div>
@@ -193,7 +200,7 @@ function $(id){return document.getElementById(id);}
 function toast(msg){var t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);},2200);}
 
 /* ---------- données ---------- */
-function defState(){return {version:1,settings:{noms:'',adresse1:'',adresse2:'',tel:'',mail:'',iban:'',bic:'',taux:'20',deplacement:'80',delaiCommande:'3',limites:''},catalogue:[],devis:[],seq:{}};}
+function defState(){return {version:1,settings:{noms:'',adresse1:'',adresse2:'',tel:'',mail:'',iban:'',bic:'',taux:'20',deplacement:'80',delaiCommande:'3',limites:'',prixKm:'0.6',condLoc:'Le matériel est remis en bon état de marche et doit être rendu propre, à la date prévue. Toute casse, perte ou usure anormale est à la charge du locataire. La caution est restituée au retour après contrôle.'},catalogue:[],devis:[],seq:{},events:[],machines:[],locations:[]};}
 function load(){
  try{var s=localStorage.getItem(KEY);state=s?JSON.parse(s):defState();}catch(e){state=defState();}
  var d=defState();
@@ -203,6 +210,8 @@ function load(){
  if(!state.devis)state.devis=[];
  if(!state.seq)state.seq={};
  if(!state.events)state.events=[];
+ if(!state.machines)state.machines=[];
+ if(!state.locations)state.locations=[];
 }
 function save(){
  try{localStorage.setItem(KEY,JSON.stringify(state));}
@@ -233,6 +242,7 @@ function refreshDatalists(){
  $('unites').innerHTML=UNITES.map(function(u){return '<option value="'+esc(u)+'">';}).join('');
  $('cat').innerHTML=state.catalogue.map(function(c){return '<option value="'+esc(c.des)+'">';}).join('');
  var seen={},m=[];
+ (state.machines||[]).forEach(function(mm){var k=String(mm.nom||'').trim();if(k&&!seen[k.toLowerCase()]){seen[k.toLowerCase()]=1;m.push(k);}});
  (state.events||[]).forEach(function(e){var k=String(e.machine||'').trim();if(k&&!seen[k.toLowerCase()]){seen[k.toLowerCase()]=1;m.push(k);}});
  $('machines').innerHTML=m.map(function(x){return '<option value="'+esc(x)+'">';}).join('');
 }
@@ -250,6 +260,7 @@ function getEv(id){for(var i=0;i<state.events.length;i++)if(state.events[i].id==
 function itemsOn(ds){
  var out=[];
  state.events.forEach(function(e){if(evOn(e,ds))out.push({k:e.type,ev:e,label:(e.heure?e.heure.replace(':','h')+' ':'')+(e.titre||TYPES[e.type])+(e.machine?' ('+e.machine+')':'')});});
+ (state.locations||[]).forEach(function(L){if(L.statut!=='annulée'&&L.debut&&L.debut<=ds&&ds<=locEnd(L))out.push({k:'location',loc:L,label:mName(L.machineId)+', '+(L.client.nom||L.numero)});});
  state.devis.forEach(function(d){
   if(d.statut==='payé'||d.statut==='brouillon')return;
   if(d.dateChantier===ds&&!hasEvent(d.id))out.push({k:'devis',d:d,label:'Chantier à planifier : '+(d.client.nom||d.numero)});
@@ -260,6 +271,7 @@ function itemsOn(ds){
  return out;
 }
 function chip(it){
+ if(it.loc)return '<a class="chip k-location" href="#location-'+it.loc.id+'">'+esc(it.label)+'</a>';
  if(it.ev)return '<a class="chip k-'+it.k+'" data-a="evEdit" data-id="'+it.ev.id+'">'+esc(it.label)+'</a>';
  return '<a class="chip k-'+it.k+'" href="#devis-'+it.d.id+'">'+esc(it.label)+'</a>';
 }
@@ -267,6 +279,7 @@ function dayLabel(ds){var d=parseISO(ds);return JOURS[(d.getDay()+6)%7]+'<br><sp
 function conflicts(e){
  var m=String(e.machine||'').trim().toLowerCase(),out=[];if(!m)return out;
  state.events.forEach(function(o){if(o.id!==e.id&&String(o.machine||'').trim().toLowerCase()===m&&o.debut<=evEnd(e)&&e.debut<=evEnd(o))out.push(o);});
+ (state.locations||[]).forEach(function(L){if(L.statut!=='annulée'&&L.debut&&String(mName(L.machineId)).trim().toLowerCase()===m&&L.debut<=evEnd(e)&&e.debut<=locEnd(L))out.push({titre:'Location '+(L.client.nom||L.numero),debut:L.debut,fin:L.fin});});
  return out;
 }
 function periode(e){return e.fin&&e.fin>e.debut?'du '+frDate(e.debut)+' au '+frDate(e.fin):'le '+frDate(e.debut);}
@@ -288,6 +301,12 @@ function rappels(){
    if(n2<=1)out.push({n:n2,date:d.echeance,d:d,pay:true,txt:(n2<0?'Relancer le paiement de ':'Paiement attendu de ')+(d.client.nom||'client')+', '+eur(totaux(d).facture)});
   }
  });
+ state.locations.forEach(function(L){
+  if(L.statut==='réservée'&&L.debut){var n=daysBetween(t,L.debut);if(n<=1)out.push({n:n,date:L.debut,loc:L,txt:'Sortie '+mName(L.machineId)+' pour '+(L.client.nom||'client')});}
+  if(L.statut==='sortie'){var f=locEnd(L),n3=daysBetween(t,f);if(n3<=1)out.push({n:n3,date:f,loc:L,txt:'Retour '+mName(L.machineId)+' de '+(L.client.nom||'client')});}
+  if(L.statut==='rendue'){out.push({n:Math.min(0,daysBetween(t,locEnd(L))),date:t,loc:L,txt:'Encaisser la location de '+(L.client.nom||'client')+', '+eur(locCalc(L).total)});}
+ });
+ state.machines.forEach(function(m){if(entretienDu(m))out.push({n:0,date:t,mach:m,txt:'Entretien à prévoir : '+(m.nom||'machine')+' ('+fq(m.heures)+' h)'});});
  out.sort(function(a,b){return a.n-b.n;});
  return out;
 }
@@ -302,15 +321,17 @@ function viewHome(){
   if(d.statut==='signé'||d.statut==='en cours')enCours++;
   if(d.statut==='payé'&&String(d.date).slice(0,4)===y)ca+=t.facture;
  });
- var h='<div class="card"><h1>Accueil</h1><button class="btn" data-a="new">+ Nouveau devis</button></div>';
+ state.locations.forEach(function(L){if(L.statut==='rendue'||L.statut==='sortie')attente+=locCalc(L).total;if(L.statut==='payée'&&String(L.debut).slice(0,4)===y)ca+=locCalc(L).total;});
+ var h='<div class="card"><h1>Accueil</h1><button class="btn" data-a="new">+ Nouveau devis</button><button class="btn dark" data-a="locNew">+ Location</button></div>';
  h+='<div class="stats"><div class="stat"><div class="v">'+eur(attente)+'</div><div class="l">En attente de paiement</div></div>';
  h+='<div class="stat"><div class="v">'+enCours+'</div><div class="l">Chantiers signés ou en cours</div></div>';
  h+='<div class="stat"><div class="v">'+eur(ca)+'</div><div class="l">Encaissé '+y+' (part chacun : '+eur(ca/2)+')</div></div></div>';
  h+='<div class="card"><h2>À faire</h2>';
  if(!r.length)h+='<p class="muted">Rien d’urgent. Les rappels apparaissent ici pour les devis signés ou en cours.</p>';
  r.forEach(function(x){
-  h+='<div class="todo">'+whenTag(x.n)+'<div class="t"><a href="#devis-'+x.d.id+'">'+esc(x.txt)+'</a><div class="small muted">'+esc(x.d.numero)+(x.d.reference?', '+esc(x.d.reference):'')+'</div></div>';
-  h+='<a class="btn small sec" href="'+gcal(x.txt,x.date,x.d.numero+' '+(x.d.reference||''))+'" target="_blank">Agenda</a></div>';
+  var href=x.d?'#devis-'+x.d.id:x.loc?'#location-'+x.loc.id:'#machine-'+x.mach.id,sub=x.d?x.d.numero+(x.d.reference?', '+x.d.reference:''):x.loc?x.loc.numero:'';
+  h+='<div class="todo">'+whenTag(x.n)+'<div class="t"><a href="'+href+'">'+esc(x.txt)+'</a><div class="small muted">'+esc(sub)+'</div></div>';
+  h+='<a class="btn small sec" href="'+gcal(x.txt,x.date,sub)+'" target="_blank">Agenda</a></div>';
  });
  h+='</div>'+weekSummary()+'<div class="card"><h2>Devis ('+state.devis.length+')</h2>';
  if(!state.devis.length)h+='<p class="muted">Aucun devis pour le moment.</p>';
@@ -535,6 +556,7 @@ function viewReglages(){
  h+='<div class="grid"><div class="w2"><label>IBAN (pied de devis)</label>'+inp('s.iban',s.iban)+'</div><div><label>BIC</label>'+inp('s.bic',s.bic)+'</div></div></div>';
  h+='<div class="card"><h2>Valeurs par défaut</h2><div class="grid"><div><label>Taux horaire main d’œuvre (€ HT)</label>'+numInp('s.taux',s.taux)+'</div><div><label>Forfait déplacement (€ HT)</label>'+numInp('s.deplacement',s.deplacement)+'</div><div><label>Commander les matériaux (jours avant chantier)</label>'+numInp('s.delaiCommande',s.delaiCommande)+'</div></div>';
  h+='<label>Limites de prestation par défaut</label><textarea data-b="s.limites">'+esc(s.limites)+'</textarea></div>';
+ h+='<div class="card"><h2>Locations</h2><label>Prix du transport (€ HT par km)</label>'+numInp('s.prixKm',s.prixKm)+'<label>Conditions de location (sur l’état des lieux)</label><textarea data-b="s.condLoc">'+esc(s.condLoc)+'</textarea></div>';
  h+='<div class="card"><h2>Sauvegarde</h2><p class="small muted">Les données sont dans cet appareil ('+Math.round(used/1024)+' Ko utilisés sur environ 5000). Fais une sauvegarde régulièrement, et pour passer d’un appareil à l’autre en attendant la synchro.</p>';
  h+='<button class="btn" data-a="export">Exporter un fichier</button><button class="btn sec" data-a="showExport">Copier les données</button>';
  h+='<label>Importer un fichier de sauvegarde</label><input type="file" id="impFile" accept=".json,application/json,text/plain">';
@@ -543,18 +565,264 @@ function viewReglages(){
  return h;
 }
 
+/* ---------- photos (IndexedDB) ---------- */
+var DB=null,autoOrient=null;
+function idb(cb){
+ if(DB)return cb(DB);
+ try{var r=indexedDB.open('chantiers_photos',1);
+  r.onupgradeneeded=function(){r.result.createObjectStore('p');};
+  r.onsuccess=function(){DB=r.result;cb(DB);};
+  r.onerror=function(){cb(null);};
+ }catch(e){cb(null);}
+}
+function phPut(id,data,cb){idb(function(db){if(!db){cb(false);return;}try{var tx=db.transaction('p','readwrite');tx.objectStore('p').put(data,id);tx.oncomplete=function(){cb(true);};tx.onerror=function(){cb(false);};}catch(e){cb(false);}});}
+function phGet(id,cb){idb(function(db){if(!db)return cb(null);try{var rq=db.transaction('p','readonly').objectStore('p').get(id);rq.onsuccess=function(){cb(rq.result||null);};rq.onerror=function(){cb(null);};}catch(e){cb(null);}});}
+function idbDel(id){if(!id)return;idb(function(db){if(!db)return;try{db.transaction('p','readwrite').objectStore('p').delete(id);}catch(e){}});}
+function hydrate(){var ims=document.querySelectorAll('img[data-ph]');for(var i=0;i<ims.length;i++)(function(im){phGet(im.getAttribute('data-ph'),function(d){if(d)im.src=d;});})(ims[i]);}
+function detectOrient(cb){
+ if(autoOrient!==null)return cb(autoOrient);
+ try{
+  var c=document.createElement('canvas');c.width=2;c.height=1;
+  var bin=atob(c.toDataURL('image/jpeg').split(',')[1]);
+  var ex=[0xFF,0xE1,0x00,0x22,0x45,0x78,0x69,0x66,0x00,0x00,0x4D,0x4D,0x00,0x2A,0x00,0x00,0x00,0x08,0x00,0x01,0x01,0x12,0x00,0x03,0x00,0x00,0x00,0x01,0x00,0x06,0x00,0x00,0x00,0x00,0x00,0x00];
+  var out=new Uint8Array(bin.length+ex.length),k;
+  out[0]=bin.charCodeAt(0);out[1]=bin.charCodeAt(1);
+  for(k=0;k<ex.length;k++)out[2+k]=ex[k];
+  for(k=2;k<bin.length;k++)out[k+ex.length]=bin.charCodeAt(k);
+  var url=URL.createObjectURL(new Blob([out],{type:'image/jpeg'})),im=new Image();
+  im.onload=function(){autoOrient=(im.naturalWidth===1&&im.naturalHeight===2);URL.revokeObjectURL(url);cb(autoOrient);};
+  im.onerror=function(){autoOrient=false;cb(false);};
+  im.src=url;
+ }catch(e){autoOrient=false;cb(false);}
+}
+function exifOrientation(buf){
+ try{var v=new DataView(buf);if(v.getUint16(0,false)!==0xFFD8)return 1;
+  var len=v.byteLength,off=2;
+  while(off<len-4){
+   var mk=v.getUint16(off,false);off+=2;
+   if(mk===0xFFE1){
+    if(v.getUint32(off+2,false)!==0x45786966)return 1;
+    var t=off+8,little=v.getUint16(t,false)===0x4949,ifd=t+v.getUint32(t+4,little),n=v.getUint16(ifd,little);
+    for(var i=0;i<n;i++){var e=ifd+2+i*12;if(v.getUint16(e,little)===0x0112)return v.getUint16(e+8,little);}
+    return 1;
+   }else if((mk&0xFF00)!==0xFF00)break;
+   else off+=v.getUint16(off,false);
+  }
+ }catch(e){}
+ return 1;
+}
+function processPhoto(file,cb){
+ detectOrient(function(auto){
+  var rd=new FileReader();
+  rd.onload=function(){
+   var o=auto?1:exifOrientation(rd.result),url=URL.createObjectURL(file),im=new Image();
+   im.onload=function(){
+    var W=im.naturalWidth,H=im.naturalHeight,sc=Math.min(1,1100/Math.max(W,H)),w=Math.round(W*sc),h=Math.round(H*sc),c=document.createElement('canvas'),x=c.getContext('2d');
+    if(o>=5&&o<=8){c.width=h;c.height=w;}else{c.width=w;c.height=h;}
+    switch(o){case 2:x.transform(-1,0,0,1,w,0);break;case 3:x.transform(-1,0,0,-1,w,h);break;case 4:x.transform(1,0,0,-1,0,h);break;case 5:x.transform(0,1,1,0,0,0);break;case 6:x.transform(0,1,-1,0,h,0);break;case 7:x.transform(0,-1,-1,0,h,w);break;case 8:x.transform(0,-1,1,0,0,w);break;}
+    x.drawImage(im,0,0,w,h);URL.revokeObjectURL(url);
+    var id='ph_'+uid();
+    phPut(id,c.toDataURL('image/jpeg',0.6),function(ok){cb(ok?id:null);});
+   };
+   im.onerror=function(){cb(null);};
+   im.src=url;
+  };
+  rd.onerror=function(){cb(null);};
+  rd.readAsArrayBuffer(file);
+ });
+}
+function addPhotos(k,files){
+ var list=[].slice.call(files||[]),fail=0;if(!list.length)return;
+ toast('Enregistrement des photos…');
+ (function next(){
+  if(!list.length){save();render(true);if(fail)toast(fail+' photo(s) non enregistrée(s)');return;}
+  processPhoto(list.shift(),function(id){
+   if(!id)fail++;
+   else if(k==='machine'&&curM){if(curM.photo)idbDel(curM.photo);curM.photo=id;curM.modifieLe=Date.now();}
+   else if(curL&&curL[k]){curL[k].photos.push(id);curL.modifieLe=Date.now();}
+   next();
+  });
+ })();
+}
+function allPhotoIds(){var ids=[];state.machines.forEach(function(m){if(m.photo)ids.push(m.photo);});state.locations.forEach(function(L){ids=ids.concat(L.sortie.photos||[],L.retour.photos||[]);});return ids;}
+function exportData(cb){var o=JSON.parse(JSON.stringify(state)),ids=allPhotoIds();o.photos={};(function next(){if(!ids.length)return cb(JSON.stringify(o));var id=ids.shift();phGet(id,function(d){if(d)o.photos[id]=d;next();});})();}
+
+/* ---------- parc et locations : données ---------- */
+var curM=null,curL=null;
+var LSTATUTS=['réservée','sortie','rendue','payée','annulée'];
+var LCLS=['st-2','st-3','st-1','st-5','st-0'];
+var CARB=['','vide','1/4','1/2','3/4','plein'];
+function getMachine(id){for(var i=0;i<state.machines.length;i++)if(state.machines[i].id===id)return state.machines[i];return null;}
+function getLoc(id){for(var i=0;i<state.locations.length;i++)if(state.locations[i].id===id)return state.locations[i];return null;}
+function mName(id){var m=getMachine(id);return m?(m.nom||'Machine sans nom'):'Machine ?';}
+function newMachine(){var m={id:uid(),nom:'',type:'',marque:'',modele:'',serie:'',annee:'',heures:'',photo:'',intervalle:'',note:'',tarifs:{jour:'',weekend:'',semaine:'',caution:'',nettoyage:'',usureMm:''},entretien:[],creeLe:Date.now(),modifieLe:Date.now()};state.machines.push(m);save();return m;}
+function edlBlank(){return {date:'',heures:'',carburant:'',mesure:'',remarques:'',photos:[],sig:''};}
+function newLocNum(){var d=new Date(),k='L'+d.getFullYear()+pad(d.getMonth()+1);state.seq[k]=(state.seq[k]||0)+1;return 'LOC'+k.slice(1)+'-'+('00'+state.seq[k]).slice(-3);}
+function newLoc(mid){
+ var L={id:uid(),numero:newLocNum(),machineId:mid||'',statut:'réservée',client:{nom:'',tel:'',adresse:''},debut:today(),fin:today(),forfait:'auto',nettoyage:false,km:'',carburantEur:'',fraisLib:'',fraisEur:'',remise:'',caution:'',cautionRendue:false,sortie:edlBlank(),retour:edlBlank(),note:'',creeLe:Date.now(),modifieLe:Date.now()};
+ var m=getMachine(mid);if(m)L.caution=m.tarifs.caution||'';
+ state.locations.unshift(L);save();return L;
+}
+function locEnd(L){return L.fin&&L.fin>=L.debut?L.fin:L.debut;}
+function locDays(L){return L.debut?daysBetween(L.debut,locEnd(L))+1:0;}
+function locCalc(L){
+ var m=getMachine(L.machineId),t=m?m.tarifs:{},days=locDays(L),j=num(t.jour),w=num(t.semaine),we=num(t.weekend),lines=[];
+ if(L.forfait==='weekend'&&we)lines.push({des:'Forfait week end',q:1,u:'forfait',pu:we});
+ else if(days){
+  var weeks=w?Math.floor(days/7):0,rest=days-weeks*7;
+  if(w&&rest&&j*rest>=w){weeks++;rest=0;}
+  if(weeks)lines.push({des:'Location à la semaine',q:weeks,u:'semaine',pu:w});
+  if(rest)lines.push({des:'Location à la journée',q:rest,u:'jour',pu:j});
+ }
+ if(L.nettoyage&&num(t.nettoyage))lines.push({des:'Nettoyage',q:1,u:'forfait',pu:num(t.nettoyage)});
+ var so=L.sortie||{},re=L.retour||{},us=num(so.mesure)-num(re.mesure);
+ if(num(t.usureMm)&&String(so.mesure||'')!==''&&String(re.mesure||'')!==''&&us>0)lines.push({des:'Usure disque ('+fq(so.mesure)+' mm au départ, '+fq(re.mesure)+' mm au retour)',q:Math.round(us*10)/10,u:'mm',pu:num(t.usureMm)});
+ if(num(L.km))lines.push({des:'Transport',q:num(L.km),u:'km',pu:num(state.settings.prixKm)});
+ if(num(L.carburantEur))lines.push({des:'Carburant',q:1,u:'forfait',pu:num(L.carburantEur)});
+ if(num(L.fraisEur))lines.push({des:L.fraisLib||'Frais divers',q:1,u:'forfait',pu:num(L.fraisEur)});
+ if(num(L.remise))lines.push({des:'Remise',q:1,u:'forfait',pu:-num(L.remise)});
+ var tot=0;lines.forEach(function(l){tot+=l.q*l.pu;});
+ return {days:days,lines:lines,total:tot};
+}
+function lastEntretien(m){var b=null;(m.entretien||[]).forEach(function(e){if(!b||num(e.heures)>num(b.heures))b=e;});return b;}
+function entretienDu(m){var iv=num(m.intervalle);if(!iv||String(m.heures)==='')return false;var le=lastEntretien(m);return num(m.heures)-(le?num(le.heures):0)>=iv;}
+function machineStatut(m){for(var i=0;i<state.locations.length;i++){var L=state.locations[i];if(L.machineId===m.id&&L.statut==='sortie')return 'louée';}return 'disponible';}
+function locConflicts(L){
+ var out=[],m=getMachine(L.machineId);if(!m||!L.debut||L.statut==='annulée')return out;
+ var f=locEnd(L),nm=String(m.nom||'').trim().toLowerCase();
+ state.locations.forEach(function(o){if(o.id!==L.id&&o.machineId===L.machineId&&o.statut!=='annulée'&&o.debut<=f&&L.debut<=locEnd(o))out.push('location '+o.numero+' ('+(o.client.nom||'client ?')+') '+periode(o));});
+ if(nm)state.events.forEach(function(e){if(String(e.machine||'').trim().toLowerCase()===nm&&e.debut<=f&&L.debut<=evEnd(e))out.push((e.titre||TYPES[e.type])+' '+periode(e));});
+ return out;
+}
+
+/* ---------- parc et locations : vues ---------- */
+function thumb(id,k,i){return '<div class="thumb"><img data-ph="'+id+'" alt=""><button class="btn danger icon" data-a="phDel" data-w="'+k+'" data-i="'+i+'">✕</button></div>';}
+function locRow(L){
+ var si=LSTATUTS.indexOf(L.statut);
+ return '<a class="row" href="#location-'+L.id+'"><div class="main"><b>'+esc(mName(L.machineId))+', '+esc(L.client.nom||'client ?')+'</b><span class="small muted">'+esc(L.numero)+', '+periode(L)+'</span></div><div class="side"><span class="pill '+(LCLS[si]||'st-0')+'">'+esc(L.statut)+'</span><div class="small" style="margin-top:4px"><b style="display:inline">'+eur(locCalc(L).total)+'</b></div></div></a>';
+}
+function viewParc(){
+ var h='<div class="card"><h1>Parc et locations</h1><button class="btn" data-a="mNew">+ Machine</button><button class="btn dark" data-a="locNew">+ Location</button><button class="btn sec" data-a="quick">Calcul rapide</button></div>';
+ h+='<div class="card"><h2>Machines ('+state.machines.length+')</h2>';
+ if(!state.machines.length)h+='<p class="muted">Ajoute ta première machine, par exemple ta scie de sol 650.</p>';
+ state.machines.forEach(function(m){
+  var st=machineStatut(m),sub=[m.marque,m.modele].filter(function(x){return x;}).join(' ');
+  if(String(m.heures)!=='')sub+=(sub?', ':'')+fq(m.heures)+' h';
+  h+='<a class="row" href="#machine-'+m.id+'">'+(m.photo?'<img class="mthumb" data-ph="'+m.photo+'" alt="">':'<div class="mthumb"></div>')+'<div class="main"><b>'+esc(m.nom||'Machine sans nom')+'</b><span class="small muted">'+esc(sub)+'</span>'+(entretienDu(m)?'<div class="small" style="color:#c0392b;font-weight:600">Entretien à prévoir</div>':'')+'</div>';
+  h+='<div class="side"><span class="pill '+(st==='louée'?'st-1':'st-4')+'">'+st+'</span><div class="small muted" style="margin-top:4px">'+(num(m.tarifs.jour)?eur(m.tarifs.jour)+' / jour':'tarif à définir')+'</div></div></a>';
+ });
+ h+='</div><div class="card"><h2>Locations ('+state.locations.length+')</h2>';
+ if(!state.locations.length)h+='<p class="muted">Aucune location pour le moment.</p>';
+ state.locations.forEach(function(L){h+=locRow(L);});
+ return h+'</div>';
+}
+function viewMachine(m){
+ var t=m.tarifs,h='';
+ h+='<div class="card"><a class="btn sec small" href="#parc">← Parc</a><h1>'+esc(m.nom||'Nouvelle machine')+'</h1><button class="btn dark" data-a="locNew" data-id="'+m.id+'">+ Louer cette machine</button><button class="btn danger" data-a="mDel">Supprimer</button></div>';
+ h+='<div class="card"><h2>Fiche</h2><div class="grid"><div class="w2"><label>Nom</label>'+inp('m.nom',m.nom,'ex : Scie de sol 650')+'</div><div><label>Type</label>'+inp('m.type',m.type,'ex : scie de sol')+'</div></div>';
+ h+='<div class="grid"><div><label>Marque</label>'+inp('m.marque',m.marque)+'</div><div><label>Modèle</label>'+inp('m.modele',m.modele)+'</div><div><label>N° de série</label>'+inp('m.serie',m.serie)+'</div></div>';
+ h+='<div class="grid"><div><label>Année</label>'+numInp('m.annee',m.annee)+'</div><div><label>Compteur actuel (h)</label>'+numInp('m.heures',m.heures)+'</div><div><label>Entretien toutes les (h)</label>'+numInp('m.intervalle',m.intervalle,'ex : 50')+'</div></div>';
+ h+='<label>Photo</label><div class="phgrid">'+(m.photo?thumb(m.photo,'machine',0):'')+'</div><input type="file" accept="image/*" data-ph-add="machine">';
+ h+='<label>Notes</label><textarea data-b="m.note" placeholder="Accessoires, consignes, particularités…">'+esc(m.note)+'</textarea></div>';
+ h+='<div class="card"><h2>Tarifs de location (HT)</h2><p class="small muted">Laisse vide ce que tu ne sais pas encore : le calcul n’utilise que les cases remplies.</p>';
+ h+='<div class="grid"><div><label>Jour</label>'+numInp('m.tarifs.jour',t.jour)+'</div><div><label>Week end (forfait)</label>'+numInp('m.tarifs.weekend',t.weekend)+'</div><div><label>Semaine</label>'+numInp('m.tarifs.semaine',t.semaine)+'</div></div>';
+ h+='<div class="grid"><div><label>Caution</label>'+numInp('m.tarifs.caution',t.caution)+'</div><div><label>Nettoyage (forfait)</label>'+numInp('m.tarifs.nettoyage',t.nettoyage)+'</div><div><label>Usure disque (€ par mm)</label>'+numInp('m.tarifs.usureMm',t.usureMm)+'</div></div></div>';
+ var le=lastEntretien(m);
+ h+='<div class="card"><h2>Entretien</h2>';
+ if(num(m.intervalle))h+='<p class="small '+(entretienDu(m)?'':'muted')+'" style="'+(entretienDu(m)?'color:#c0392b;font-weight:600':'')+'">'+(entretienDu(m)?'Entretien à prévoir. ':'')+'Dernier entretien à '+(le?fq(le.heures):'0')+' h, prochain à '+fq((le?num(le.heures):0)+num(m.intervalle))+' h.</p>';
+ var en=(m.entretien||[]).map(function(e,i){return {e:e,i:i};}).sort(function(a,b){return a.e.date<b.e.date?1:-1;});
+ if(!en.length)h+='<p class="muted">Aucun entretien noté.</p>';
+ en.forEach(function(x){h+='<div class="todo"><div class="t"><b>'+esc(x.e.type||'Entretien')+'</b><div class="small muted">'+frDate(x.e.date)+(String(x.e.heures)!==''?', '+fq(x.e.heures)+' h':'')+(num(x.e.cout)?', '+eur(x.e.cout):'')+'</div></div><button class="btn sec icon" data-a="enDel" data-i="'+x.i+'">✕</button></div>';});
+ h+='<div class="grid"><div><label>Date</label><input type="date" id="enD" value="'+today()+'"></div><div><label>Compteur (h)</label><input id="enH" inputmode="decimal" value="'+esc(m.heures)+'"></div><div><label>Coût (€)</label><input id="enC" inputmode="decimal"></div></div>';
+ h+='<label>Intervention</label><input id="enT" placeholder="ex : vidange, filtre à air, changement disque"><button class="btn small" data-a="enAdd" style="margin-top:8px">+ Noter l’entretien</button></div>';
+ var ls=state.locations.filter(function(L){return L.machineId===m.id;}),ca=0;
+ ls.forEach(function(L){if(L.statut==='payée')ca+=locCalc(L).total;});
+ h+='<div class="card"><h2>Locations de cette machine</h2><p class="small muted">Encaissé au total : '+eur(ca)+'</p>'+(ls.length?ls.map(locRow).join(''):'<p class="muted">Aucune.</p>')+'</div>';
+ return h;
+}
+function prixTable(c){
+ var h='<div class="recap">';
+ c.lines.forEach(function(l){h+='<div><span>'+esc(l.des)+'<br><span class="muted small">'+fq(l.q)+' '+esc(l.u)+' × '+eur(l.pu)+'</span></span><b>'+eur(l.q*l.pu)+'</b></div>';});
+ if(!c.lines.length)h+='<p class="muted small">Choisis la machine et les dates, et remplis les tarifs dans la fiche machine.</p>';
+ return h+'<div class="big"><span>Total HT ('+c.days+' j)</span><span>'+eur(c.total)+'</span></div></div>';
+}
+function edlBlock(k,e,title){
+ var b='L.'+k+'.';
+ var h='<div class="card"><h2>'+title+'</h2><div class="grid"><div><label>Date</label><input type="date" data-b="'+b+'date" value="'+esc(e.date)+'"></div><div><label>Compteur (h)</label>'+numInp(b+'heures',e.heures)+'</div></div>';
+ h+='<div class="grid"><div><label>Carburant</label><select data-b="'+b+'carburant">'+CARB.map(function(x){return '<option value="'+x+'"'+sel(e.carburant,x)+'>'+(x||'Non noté')+'</option>';}).join('')+'</select></div><div><label>Disque / usure (mm)</label>'+numInp(b+'mesure',e.mesure,'ex : 650')+'</div></div>';
+ h+='<label>État, remarques</label><textarea data-b="'+b+'remarques" placeholder="Rayures, chocs, accessoires fournis…">'+esc(e.remarques)+'</textarea>';
+ h+='<label>Photos ('+e.photos.length+')</label><div class="phgrid">'+e.photos.map(function(p,i){return thumb(p,k,i);}).join('')+'</div><input type="file" accept="image/*" multiple data-ph-add="'+k+'">';
+ h+='<div style="margin-top:10px">'+sigBlock(k,e.sig,'Signature du client')+'</div></div>';
+ return h;
+}
+function viewLoc(L){
+ var c=locCalc(L),cf=locConflicts(L),h='';
+ h+='<div class="card"><a class="btn sec small" href="#parc">← Parc</a><h1>Location '+esc(L.numero)+'</h1><a class="btn dark" href="#edl-'+L.id+'">État des lieux / PDF</a><button class="btn sec" data-a="locPlan">Voir au planning</button><button class="btn danger" data-a="locDel">Supprimer</button>';
+ h+='<div class="small muted">Créée le '+stamp(L.creeLe)+', modifiée le '+stamp(L.modifieLe)+'</div></div>';
+ h+='<div class="card"><h2>Location</h2><div class="grid"><div class="w2"><label>Machine</label><select data-b="L.machineId" data-re="1"><option value="">Choisir…</option>'+state.machines.map(function(m){return '<option value="'+m.id+'"'+sel(L.machineId,m.id)+'>'+esc(m.nom||'Machine sans nom')+'</option>';}).join('')+'</select></div>';
+ h+='<div><label>Statut</label><select data-b="L.statut" data-re="1">'+LSTATUTS.map(function(s){return '<option'+sel(L.statut,s)+'>'+s+'</option>';}).join('')+'</select></div></div>';
+ h+='<div class="grid"><div><label>Du</label><input type="date" data-b="L.debut" data-re="1" value="'+esc(L.debut)+'"></div><div><label>Au</label><input type="date" data-b="L.fin" data-re="1" value="'+esc(L.fin)+'"></div><div><label>Tarif</label><select data-b="L.forfait" data-re="1"><option value="auto"'+sel(L.forfait,'auto')+'>Jour / semaine (auto)</option><option value="weekend"'+sel(L.forfait,'weekend')+'>Forfait week end</option></select></div></div>';
+ if(cf.length)h+='<div class="warn">Attention, machine déjà prévue : '+cf.map(esc).join(' ; ')+'</div>';
+ h+='</div>';
+ h+='<div class="card"><h2>Client</h2><div class="grid"><div class="w2"><label>Nom</label>'+inp('L.client.nom',L.client.nom)+'</div><div><label>Téléphone</label>'+inp('L.client.tel',L.client.tel,'',' type="tel"')+'</div></div><label>Adresse</label>'+inp('L.client.adresse',L.client.adresse)+'</div>';
+ h+=edlBlock('sortie',L.sortie,'Départ')+edlBlock('retour',L.retour,'Retour');
+ h+='<div class="card"><h2>Prix</h2><label class="chk"><input type="checkbox" data-b="L.nettoyage" data-re="1"'+(L.nettoyage?' checked':'')+'>Facturer le nettoyage</label>';
+ h+='<div class="grid"><div><label>Transport (km aller retour)</label>'+numInp('L.km',L.km)+'</div><div><label>Carburant (€)</label>'+numInp('L.carburantEur',L.carburantEur)+'</div><div><label>Remise (€)</label>'+numInp('L.remise',L.remise)+'</div></div>';
+ h+='<div class="grid"><div class="w2"><label>Autres frais (libellé)</label>'+inp('L.fraisLib',L.fraisLib,'ex : casse lame')+'</div><div><label>Autres frais (€)</label>'+numInp('L.fraisEur',L.fraisEur)+'</div></div>';
+ h+='<div id="locprix" style="margin-top:12px">'+prixTable(c)+'</div>';
+ h+='<div class="grid"><div><label>Caution demandée (€)</label>'+numInp('L.caution',L.caution)+'</div><div><label class="chk"><input type="checkbox" data-b="L.cautionRendue"'+(L.cautionRendue?' checked':'')+'>Caution rendue</label></div></div>';
+ h+='<label>Note</label><textarea data-b="L.note">'+esc(L.note)+'</textarea></div>';
+ return h;
+}
+function viewEdl(L){
+ var s=state.settings,m=getMachine(L.machineId)||{nom:'?',marque:'',modele:'',serie:''},c=locCalc(L),so=L.sortie,re=L.retour,h='';
+ function row(lab,a,b){return '<tr><td><b>'+lab+'</b></td><td>'+a+'</td><td>'+b+'</td></tr>';}
+ function imgs(list){return list.map(function(p){return '<img data-ph="'+p+'" alt="">';}).join('');}
+ h+='<div class="card no-print"><a class="btn sec" href="#location-'+L.id+'">← Modifier</a><button class="btn" data-a="print">Imprimer / PDF</button><p class="small muted">Attends que les photos soient affichées avant d’imprimer. Sur iPad : Imprimer, puis écarte deux doigts sur l’aperçu pour obtenir le PDF.</p></div>';
+ h+='<div class="docwrap"><div class="doc">';
+ h+='<table class="dh"><tr><td><b>'+esc(s.noms||'Vos noms (Réglages)')+'</b><br>'+(s.tel?'Tél : '+esc(s.tel)+'<br>':'')+(s.mail?'Mail : '+esc(s.mail):'')+'</td><td>'+esc(s.adresse1)+'<br>'+esc(s.adresse2)+'</td><td class="dh-r"><b>'+esc(L.client.nom)+'</b><br>'+esc(L.client.adresse)+(L.client.tel?'<br>'+esc(L.client.tel):'')+'</td></tr></table>';
+ h+='<div class="dbar"><span>LOCATION ET ÉTAT DES LIEUX</span><span>'+esc(L.numero)+'</span></div>';
+ h+='<div class="dinfo"><p>Matériel : <b>'+esc(m.nom)+'</b>'+([m.marque,m.modele].filter(function(x){return x;}).length?', '+esc([m.marque,m.modele].filter(function(x){return x;}).join(' ')):'')+(m.serie?', n° de série '+esc(m.serie):'')+'</p><p>Période : <b>'+periode(L)+'</b> ('+c.days+' jour'+(c.days>1?'s':'')+')</p>'+(num(L.caution)?'<p>Caution : <b>'+eur(L.caution)+'</b>'+(L.cautionRendue?' (rendue)':'')+'</p>':'')+'</div>';
+ h+='<table class="dt"><thead><tr><th style="width:150px"></th><th>Départ</th><th>Retour</th></tr></thead><tbody>';
+ h+=row('Date',frDate(so.date),frDate(re.date))+row('Compteur (h)',esc(so.heures),esc(re.heures))+row('Carburant',esc(so.carburant),esc(re.carburant))+row('Disque / usure (mm)',esc(so.mesure),esc(re.mesure));
+ h+='<tr><td><b>Remarques</b></td><td style="white-space:pre-wrap">'+esc(so.remarques)+'</td><td style="white-space:pre-wrap">'+esc(re.remarques)+'</td></tr></tbody></table>';
+ if(so.photos.length)h+='<div class="dbox" style="white-space:normal"><b>Photos au départ</b><div class="edlph">'+imgs(so.photos)+'</div></div>';
+ if(re.photos.length)h+='<div class="dbox" style="white-space:normal"><b>Photos au retour</b><div class="edlph">'+imgs(re.photos)+'</div></div>';
+ h+='<table class="dt"><thead><tr><th>Désignation</th><th class="r" style="width:60px">Qté</th><th class="c" style="width:70px">U</th><th class="r" style="width:84px">PU HT</th><th class="r" style="width:92px">Total HT</th></tr></thead><tbody>';
+ c.lines.forEach(function(l){h+='<tr><td>'+esc(l.des)+'</td><td class="r">'+fq(l.q)+'</td><td class="c">'+esc(l.u)+'</td><td class="r">'+eur(l.pu)+'</td><td class="r">'+eur(l.q*l.pu)+'</td></tr>';});
+ h+='<tr class="st"><td colspan="4" class="r">Total HT</td><td class="r">'+eur(c.total)+'</td></tr></tbody></table>';
+ if(s.condLoc)h+='<div class="dbox"><b>Conditions de location :</b>\n'+esc(s.condLoc)+'</div>';
+ h+='<div class="dsig"><div>Au départ, le client :<br><span class="small">Lu et approuvé, matériel reçu en bon état</span><br>'+(so.sig?'<img src="'+so.sig+'" alt="">':'')+'</div><div>Au retour, le client :<br><span class="small">État de retour constaté</span><br>'+(re.sig?'<img src="'+re.sig+'" alt="">':'')+'</div></div>';
+ if(s.iban)h+='<div class="dfoot">Coordonnées bancaires : IBAN '+esc(s.iban)+(s.bic?', BIC '+esc(s.bic):'')+'</div>';
+ return h+'</div></div>';
+}
+function openQuick(){
+ var opts=state.machines.map(function(m){return '<option value="'+m.id+'">'+esc(m.nom||'Machine sans nom')+'</option>';}).join('');
+ if(!opts){toast('Ajoute d’abord une machine');return;}
+ showModal('<h2>Calcul rapide d’une location</h2><div id="qf"><label>Machine</label><select id="qM">'+opts+'</select><div class="grid"><div><label>Nombre de jours</label><input id="qD" inputmode="decimal" value="1"></div><div><label>Transport (km aller retour)</label><input id="qK" inputmode="decimal"></div></div><label class="chk"><input type="checkbox" id="qW">Forfait week end</label><label class="chk"><input type="checkbox" id="qN">Nettoyage</label><div id="qR" style="margin-top:12px"></div></div><button class="btn" data-a="quickLoc">Créer la location</button><button class="btn sec" data-a="close">Fermer</button>');
+ function upd(){$('qR').innerHTML=prixTable(locCalc(quickObj()));}
+ $('qf').addEventListener('input',upd);$('qf').addEventListener('change',upd);upd();
+}
+function quickObj(){var d=Math.max(1,Math.round(num($('qD').value)||1)),t=today();return {machineId:$('qM').value,debut:t,fin:addDays(t,d-1),forfait:$('qW').checked?'weekend':'auto',nettoyage:$('qN').checked,km:$('qK').value,sortie:edlBlank(),retour:edlBlank()};}
+
 /* ---------- rendu et routage ---------- */
 function render(keep){
  flush();
  var y=window.pageYOffset||0,h=(location.hash||'#home').slice(1),app=$('app');
  refreshDatalists();
+ curM=null;curL=null;
  if(h.indexOf('devis-')===0){cur=getDevis(h.slice(6));if(!cur){location.hash='#home';return;}app.innerHTML=viewDevis(cur);}
  else if(h.indexOf('apercu-')===0){cur=getDevis(h.slice(7));if(!cur){location.hash='#home';return;}app.innerHTML=viewApercu(cur);}
  else if(h==='planning'){cur=null;app.innerHTML=viewPlanning();if(pendingEv){var pe=pendingEv;pendingEv=null;openEv(pe);}}
+ else if(h==='parc'){cur=null;app.innerHTML=viewParc();}
+ else if(h.indexOf('machine-')===0){cur=null;curM=getMachine(h.slice(8));if(!curM){location.hash='#parc';return;}app.innerHTML=viewMachine(curM);}
+ else if(h.indexOf('location-')===0){cur=null;curL=getLoc(h.slice(9));if(!curL){location.hash='#parc';return;}app.innerHTML=viewLoc(curL);}
+ else if(h.indexOf('edl-')===0){cur=null;curL=getLoc(h.slice(4));if(!curL){location.hash='#parc';return;}app.innerHTML=viewEdl(curL);}
  else if(h==='catalogue'){cur=null;app.innerHTML=viewCatalogue();}
  else if(h==='reglages'){cur=null;app.innerHTML=viewReglages();bindImport();}
  else{cur=null;app.innerHTML=viewHome();}
  window.scrollTo(0,keep?y:0);
+ hydrate();
 }
 function updateTotals(){
  if(!cur)return;
@@ -569,12 +837,18 @@ function updateTotals(){
 }
 function setB(path,val){
  var parts=path.split('.'),root=parts.shift(),o;
- if(root==='d')o=cur;else if(root==='s')o=state.settings;else if(root==='c')o=state.catalogue;
+ if(root==='d')o=cur;else if(root==='s')o=state.settings;else if(root==='c')o=state.catalogue;else if(root==='m')o=curM;else if(root==='L')o=curL;
  if(!o)return;
  for(var i=0;i<parts.length-1;i++){o=o[parts[i]];if(o==null)return;}
  o[parts[parts.length-1]]=val;
  if(root==='d')touch();
  if(root==='c')refreshDatalists();
+ if(root==='m'&&curM)curM.modifieLe=Date.now();
+ if(root==='L'&&curL){
+  curL.modifieLe=Date.now();
+  if(/^L\.(sortie|retour)\.heures$/.test(path)){var mm=getMachine(curL.machineId);if(mm&&num(val)>num(mm.heures))mm.heures=String(val);}
+  var lp=$('locprix');if(lp)lp.innerHTML=prixTable(locCalc(curL));
+ }
  updateTotals();saveSoon();
 }
 function lineFromPath(path){var m=path.match(/^d\.postes\.(\d+)\.lignes\.(\d+)\./);if(!m||!cur)return null;var p=cur.postes[+m[1]];return p?p.lignes[+m[2]]:null;}
@@ -586,6 +860,8 @@ document.addEventListener('input',function(e){
 });
 document.addEventListener('change',function(e){
  var el=e.target,b=el.getAttribute&&el.getAttribute('data-b');
+ var pa=el.getAttribute&&el.getAttribute('data-ph-add');
+ if(pa){addPhotos(pa,el.files);return;}
  if(!b)return;
  setB(b,el.type==='checkbox'?el.checked:el.value);
  if(el.getAttribute('data-cat')){
@@ -603,7 +879,7 @@ $('modal').addEventListener('click',function(e){if(e.target.id==='modal')closeMo
 
 /* signature */
 function openSig(who){
- showModal('<h2>Signature '+(who==='client'?'du client':'du prestataire')+'</h2><p class="small muted">Signe avec le doigt dans le cadre.</p><canvas id="sigc" width="700" height="260"></canvas><button class="btn sec" data-a="sigClear">Recommencer</button><button class="btn" data-a="sigOk" data-w="'+who+'">Valider</button><button class="btn sec" data-a="close">Annuler</button>');
+ showModal('<h2>Signature '+(who==='presta'?'du prestataire':'du client')+'</h2><p class="small muted">Signe avec le doigt dans le cadre.</p><canvas id="sigc" width="700" height="260"></canvas><button class="btn sec" data-a="sigClear">Recommencer</button><button class="btn" data-a="sigOk" data-w="'+who+'">Valider</button><button class="btn sec" data-a="close">Annuler</button>');
  var c=$('sigc'),x=c.getContext('2d'),drawing=false;
  x.lineWidth=3.5;x.lineCap='round';x.lineJoin='round';x.strokeStyle='#14286e';c._has=false;
  function pos(e){var r=c.getBoundingClientRect(),t=e.touches&&e.touches.length?e.touches[0]:e;return {x:(t.clientX-r.left)*c.width/r.width,y:(t.clientY-r.top)*c.height/r.height};}
@@ -669,9 +945,11 @@ function doImport(txt){
  try{o=JSON.parse(txt);}catch(e){alert('Fichier illisible.');return;}
  if(!o||!o.devis||!o.settings){alert('Ce n’est pas une sauvegarde de l’appli.');return;}
  if(!confirm('Remplacer toutes les données de cet appareil par cette sauvegarde ('+o.devis.length+' devis) ?'))return;
- state=o;load2();save();location.hash='#home';render(false);toast('Sauvegarde importée');
+ var ph=o.photos||{},keys=Object.keys(ph);delete o.photos;
+ state=o;load2();save();
+ (function next(){if(!keys.length){location.hash='#home';render(false);toast('Sauvegarde importée');return;}var k=keys.shift();phPut(k,ph[k],function(){next();});})();
 }
-function load2(){var d=defState();for(var k in d.settings){if(state.settings[k]===undefined)state.settings[k]=d.settings[k];}if(!state.catalogue)state.catalogue=[];if(!state.seq)state.seq={};if(!state.events)state.events=[];}
+function load2(){var d=defState();for(var k in d.settings){if(state.settings[k]===undefined)state.settings[k]=d.settings[k];}if(!state.catalogue)state.catalogue=[];if(!state.seq)state.seq={};if(!state.events)state.events=[];if(!state.machines)state.machines=[];if(!state.locations)state.locations=[];}
 
 /* ---------- actions ---------- */
 document.addEventListener('click',function(e){
@@ -705,11 +983,11 @@ document.addEventListener('click',function(e){
    else{state.catalogue.push({id:uid(),des:String(l.des).trim(),unite:l.unite,pu:l.pu,fournisseur:cur.postes[i].fournisseur||''});toast('Ajouté au catalogue');}
    save();refreshDatalists();break;
   case 'sig':openSig(w);break;
-  case 'clrSig':if(w==='client')cur.sigClient='';else cur.sigPresta='';touch();save();render(true);break;
+  case 'clrSig':if(w==='sortie'||w==='retour'){curL[w].sig='';curL.modifieLe=Date.now();}else{if(w==='client')cur.sigClient='';else cur.sigPresta='';touch();}save();render(true);break;
   case 'sigClear':var cv=$('sigc');cv.getContext('2d').clearRect(0,0,cv.width,cv.height);cv._has=false;break;
   case 'sigOk':
    var cc=$('sigc');
-   if(cc._has){var img=cc.toDataURL('image/png');if(w==='client')cur.sigClient=img;else cur.sigPresta=img;if(!cur.sigDate)cur.sigDate=today();touch();save();}
+   if(cc._has){var img=cc.toDataURL('image/png');if(w==='sortie'||w==='retour'){curL[w].sig=img;if(!curL[w].date)curL[w].date=today();curL.modifieLe=Date.now();}else{if(w==='client')cur.sigClient=img;else cur.sigPresta=img;if(!cur.sigDate)cur.sigDate=today();touch();}save();}
    closeModal();render(true);break;
   case 'close':closeModal();break;
   case 'calc':openCalc();break;
@@ -718,12 +996,17 @@ document.addEventListener('click',function(e){
   case 'catAdd':state.catalogue.unshift({id:uid(),des:'',unite:'u',pu:'',fournisseur:''});save();render(true);break;
   case 'catDel':state.catalogue.splice(i,1);save();render(true);break;
   case 'export':
-   try{var blob=new Blob([JSON.stringify(state)],{type:'application/json'}),u=URL.createObjectURL(blob),aa=document.createElement('a');aa.href=u;aa.download='sauvegarde-chantiers-'+today()+'.json';document.body.appendChild(aa);aa.click();setTimeout(function(){document.body.removeChild(aa);URL.revokeObjectURL(u);},1000);}
-   catch(err){toast('Export fichier impossible ici, utilise Copier les données');}
+   exportData(function(txt){
+    try{var blob=new Blob([txt],{type:'application/json'}),u=URL.createObjectURL(blob),aa=document.createElement('a');aa.href=u;aa.download='sauvegarde-chantiers-'+today()+'.json';document.body.appendChild(aa);aa.click();setTimeout(function(){document.body.removeChild(aa);URL.revokeObjectURL(u);},1000);}
+    catch(err){toast('Export fichier impossible ici, utilise Copier les données');}
+   });
    break;
   case 'showExport':
-   var ta=$('expTxt');ta.value=JSON.stringify(state);ta.classList.remove('hidden');ta.focus();ta.select();ta.setSelectionRange(0,ta.value.length);
-   try{document.execCommand('copy');toast('Données copiées');}catch(err2){toast('Sélectionne et copie le texte');}
+   exportData(function(txt){
+    var ta=$('expTxt');ta.value=txt;ta.classList.remove('hidden');ta.focus();ta.select();ta.setSelectionRange(0,ta.value.length);
+    var okc=false;try{okc=document.execCommand('copy');}catch(err2){}
+    toast(okc?'Données copiées':'Texte sélectionné : touche Copier');
+   });
    break;
   case 'evNew':openEv({id:'',titre:'',type:'chantier',debut:el.getAttribute('data-date')||plan.ref||today(),fin:'',heure:'',devisId:'',machine:'',client:'',lieu:'',note:''});break;
   case 'evEdit':closeModal();var ev=getEv(el.getAttribute('data-id'));if(ev)openEv(ev);break;
@@ -745,6 +1028,29 @@ document.addEventListener('click',function(e){
    if(le){plan.ref=le.debut;plan.mode='semaine';location.hash='#planning';}
    else{plan.ref=cur.dateChantier||today();plan.mode='semaine';pendingEv={id:'',titre:(cur.reference||'Chantier')+(cur.client.nom?', '+cur.client.nom:''),type:'chantier',debut:cur.dateChantier||today(),fin:'',heure:'',devisId:cur.id,machine:'',client:cur.client.nom,lieu:cur.lieu,note:''};location.hash='#planning';}
    break;
+  case 'mNew':var nm=newMachine();location.hash='#machine-'+nm.id;break;
+  case 'mDel':
+   if(confirm('Supprimer la machine '+(curM.nom||'')+' ? Ses locations sont conservées.')){idbDel(curM.photo);state.machines.splice(state.machines.indexOf(curM),1);save();location.hash='#parc';}
+   break;
+  case 'enAdd':
+   if(!$('enT').value.trim()&&!$('enH').value){toast('Indique l’intervention');break;}
+   curM.entretien.push({id:uid(),date:$('enD').value||today(),heures:$('enH').value,type:$('enT').value.trim(),cout:$('enC').value});
+   if(num($('enH').value)>num(curM.heures))curM.heures=$('enH').value;
+   curM.modifieLe=Date.now();save();render(true);toast('Entretien noté');break;
+  case 'enDel':if(confirm('Supprimer cette ligne d’entretien ?')){curM.entretien.splice(i,1);save();render(true);}break;
+  case 'locNew':var nl=newLoc(el.getAttribute('data-id')||(state.machines.length===1?state.machines[0].id:''));location.hash='#location-'+nl.id;break;
+  case 'locDel':
+   if(confirm('Supprimer la location '+curL.numero+' et ses photos ?')){curL.sortie.photos.concat(curL.retour.photos).forEach(idbDel);state.locations.splice(state.locations.indexOf(curL),1);save();location.hash='#parc';}
+   break;
+  case 'locPlan':plan.ref=curL.debut||today();plan.mode='semaine';location.hash='#planning';break;
+  case 'phDel':
+   if(!confirm('Supprimer cette photo ?'))break;
+   if(w==='machine'){idbDel(curM.photo);curM.photo='';curM.modifieLe=Date.now();}
+   else{idbDel(curL[w].photos.splice(i,1)[0]);curL.modifieLe=Date.now();}
+   save();render(true);break;
+  case 'quick':openQuick();break;
+  case 'quickLoc':
+   var q=quickObj(),ql=newLoc(q.machineId);ql.fin=q.fin;ql.forfait=q.forfait;ql.nettoyage=q.nettoyage;ql.km=q.km;save();closeModal();location.hash='#location-'+ql.id;break;
   case 'importTxt':var tx=$('impTxt').value.trim();if(tx)doImport(tx);break;
  }
 });
