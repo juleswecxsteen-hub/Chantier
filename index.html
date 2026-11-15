@@ -44,6 +44,12 @@ input[type=range]{-webkit-appearance:auto;width:100%;margin:10px 0}
 .hb-t{flex:1;height:16px;margin:0 8px}
 .hb-t i{display:block;height:100%;background:#eb6834;border-radius:0 4px 4px 0}
 .hb-v{flex:0 0 96px;text-align:right;font-weight:600;font-size:14px}
+.ck{display:inline-block;border:1px solid #ccc;background:#fff;border-radius:16px;padding:7px 11px;margin:0 6px 6px 0;font-size:13px;cursor:pointer;-webkit-appearance:none;font-family:inherit;color:#333}
+.ck.ok{background:#cfe8d4;border-color:#2e7d32;color:#1e6630;font-weight:600}
+.ck.nok{background:#fdecea;border-color:#c0392b;color:#a12a1d;font-weight:600}
+.wx{font-size:12px;font-weight:400;color:#555;margin-top:2px;text-transform:none}
+.wxw{display:inline-block;background:#fff3cd;color:#7a4f00;border-radius:4px;padding:0 5px;font-size:11px;font-weight:700}
+.chip .wxw{background:rgba(255,255,255,.92)}
 .veil{position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:35;display:none}
 .veil.open{display:block}
 main{max-width:1020px;margin:0 auto;padding:14px}
@@ -145,7 +151,7 @@ textarea{min-height:64px;resize:vertical}
 .plan-title{font-size:17px;font-weight:700;margin:6px 0 8px}
 .day{border-bottom:1px solid #eee;padding:8px 0;display:flex}
 .day:last-child{border-bottom:0}
-.day .dl{flex:0 0 92px;font-weight:700;font-size:14px;text-transform:capitalize}
+.day .dl{flex:0 0 112px;font-weight:700;font-size:14px;text-transform:capitalize}
 .day .dl.today{color:#d9731a}
 .day .di{flex:1;min-width:0}
 .chip{display:block;padding:6px 9px;border-radius:6px;margin:0 0 5px;font-size:14px;color:#fff;text-decoration:none;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -242,7 +248,7 @@ function $(id){return document.getElementById(id);}
 function toast(msg){var t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);},2200);}
 
 /* ---------- données ---------- */
-function defState(){return {version:1,settings:{noms:'',adresse1:'',adresse2:'',tel:'',mail:'',iban:'',bic:'',taux:'20',deplacement:'80',delaiCommande:'3',limites:'',prixKm:'0.6',acomptePct:'50',cgl:'',siret:'',condLoc:'Le matériel est remis en bon état de marche et doit être rendu propre, à la date prévue. Toute casse, perte ou usure anormale est à la charge du locataire. La caution est restituée au retour après contrôle.'},catalogue:[],devis:[],seq:{},events:[],machines:[],locations:[],deleted:{},settingsModif:0,clients:[]};}
+function defState(){return {version:1,settings:{noms:'',adresse1:'',adresse2:'',tel:'',mail:'',iban:'',bic:'',taux:'20',deplacement:'80',delaiCommande:'3',limites:'',prixKm:'0.6',acomptePct:'50',meteoVille:'Willerval',cgl:'',siret:'',condLoc:'Le matériel est remis en bon état de marche et doit être rendu propre, à la date prévue. Toute casse, perte ou usure anormale est à la charge du locataire. La caution est restituée au retour après contrôle.'},catalogue:[],devis:[],seq:{},events:[],machines:[],locations:[],deleted:{},settingsModif:0,clients:[]};}
 function load(){
  try{var s=localStorage.getItem(KEY);state=s?JSON.parse(s):defState();}catch(e){state=defState();}
  var d=defState();
@@ -313,15 +319,22 @@ function itemsOn(ds){
   d.postes.forEach(function(p){if(p.type==='client'&&p.dateCommande===ds&&!p.commande)out.push({k:'commande',d:d,label:'Commander '+(p.titre||'matériaux')+(p.fournisseur?' ('+p.fournisseur+')':'')});});
   if(d.echeance===ds&&(d.statut==='signé'||d.statut==='en cours'||d.statut==='terminé'))out.push({k:'paiement',d:d,label:'Paiement '+(d.client.nom||d.numero)+', '+eur(totaux(d).facture)});
  });
+ out.forEach(function(x){x.ds=ds;});
  out.sort(function(a,b){var ha=a.ev&&a.ev.heure?a.ev.heure:'99',hb=b.ev&&b.ev.heure?b.ev.heure:'99';return ha<hb?-1:ha>hb?1:0;});
  return out;
 }
+function chipWx(it){
+ var pl='';
+ if(it.ev&&it.ev.type==='chantier'){pl=it.ev.lieu;if(!pl&&it.ev.devisId){var dv=getDevis(it.ev.devisId);if(dv)pl=dv.lieu;}pl=pl||wxBase();}
+ else if(it.k==='devis'&&it.d)pl=it.d.lieu||wxBase();
+ return pl&&it.ds?' data-wxp="'+esc(pl)+'" data-wxd="'+it.ds+'"':'';
+}
 function chip(it){
  if(it.loc)return '<a class="chip k-location" href="#location-'+it.loc.id+'">'+esc(it.label)+'</a>';
- if(it.ev)return '<a class="chip k-'+it.k+'" data-a="evEdit" data-id="'+it.ev.id+'">'+esc(it.label)+'</a>';
- return '<a class="chip k-'+it.k+'" href="#devis-'+it.d.id+'">'+esc(it.label)+'</a>';
+ if(it.ev)return '<a class="chip k-'+it.k+'" data-a="evEdit" data-id="'+it.ev.id+'"'+chipWx(it)+'>'+esc(it.label)+'</a>';
+ return '<a class="chip k-'+it.k+'" href="#devis-'+it.d.id+'"'+chipWx(it)+'>'+esc(it.label)+'</a>';
 }
-function dayLabel(ds){var d=parseISO(ds);return JOURS[(d.getDay()+6)%7]+'<br><span class="small muted">'+pad(d.getDate())+'/'+pad(d.getMonth()+1)+'</span>';}
+function dayLabel(ds){var d=parseISO(ds);return JOURS[(d.getDay()+6)%7]+'<br><span class="small muted">'+pad(d.getDate())+'/'+pad(d.getMonth()+1)+'</span><div class="wx" data-wx="'+ds+'"></div>';}
 function conflicts(e){
  var m=String(e.machine||'').trim().toLowerCase(),out=[];if(!m)return out;
  state.events.forEach(function(o){if(o.id!==e.id&&String(o.machine||'').trim().toLowerCase()===m&&o.debut<=evEnd(e)&&e.debut<=evEnd(o))out.push(o);});
@@ -366,13 +379,14 @@ function whenTag(n){if(n<0)return '<span class="when late">Retard '+(-n)+' j</sp
 /* ---------- vues ---------- */
 function viewHome(){
  var r=rappels();
- var h='<div class="card"><h1>Tableau de bord</h1><button class="btn" data-a="new">+ Nouveau devis</button><button class="btn dark" data-a="locNew">+ Location</button></div>';
+ var h='<div class="card"><h1>Tableau de bord</h1><button class="btn" data-a="new">+ Nouveau devis</button><button class="btn dark" data-a="locNew">+ Location</button><button class="btn sec" data-a="dispo">Machines libres ?</button></div>';
  h+=dashboard();
  h+='<div class="card"><h2>À faire</h2>';
  if(!r.length)h+='<p class="muted">Rien d’urgent. Les rappels apparaissent ici pour les devis signés ou en cours.</p>';
  r.forEach(function(x){
   var href=x.d?'#devis-'+x.d.id:x.loc?'#location-'+x.loc.id:'#machine-'+x.mach.id,sub=x.d?x.d.numero+(x.d.reference?', '+x.d.reference:''):x.loc?x.loc.numero:'';
   h+='<div class="todo">'+whenTag(x.n)+'<div class="t"><a href="'+href+'">'+esc(x.txt)+'</a><div class="small muted">'+esc(sub)+'</div></div>';
+  if(x.loc&&x.loc.statut==='sortie')h+='<a class="btn small sec" href="'+smsLink(x.loc.client.tel,locRappelTxt(x.loc))+'">💬 SMS</a>';
   h+='<a class="btn small sec" href="'+gcal(x.txt,x.date,sub)+'" target="_blank">Agenda</a></div>';
  });
  h+='</div>'+weekSummary()+'<div class="card"><div class="plan-head"><h2 style="margin:0">Derniers devis</h2><a class="btn sec small" href="#devislist" style="margin:0">Tous les devis ('+state.devis.length+')</a></div>';
@@ -457,7 +471,7 @@ function viewDevis(d){
 
  h+='<div class="card"><h2>Client</h2>'+clientPicker('d',d)+'<div class="grid"><div class="w2"><label>Nom</label>'+inp('d.client.nom',d.client.nom,'M. Dupont Jean')+'</div><div><label>Téléphone</label>'+inp('d.client.tel',d.client.tel,'',' type="tel"')+'</div></div>';
  h+='<div class="grid"><div class="w2"><label>Adresse</label>'+inp('d.client.adresse',d.client.adresse)+'</div><div><label>CP et ville</label>'+inp('d.client.ville',d.client.ville)+'</div></div>';
- h+='<label>Mail</label>'+inp('d.client.mail',d.client.mail,'',' type="email"')+'</div>';
+ h+='<label>Mail</label>'+inp('d.client.mail',d.client.mail,'',' type="email"')+smsButtons(d.client.tel,[['Envoyer le récap du devis',devisTxt(d)]])+'</div>';
 
  h+='<div class="card"><h2>Chantier</h2><div class="grid"><div><label>Lieu</label>'+inp('d.lieu',d.lieu,'ex : Cauroir (59)')+'</div><div class="w2"><label>Référence / intitulé</label>'+inp('d.reference',d.reference,'ex : Dalle béton XF1')+'</div></div>';
  h+='<label>Prestations proposées</label><textarea data-b="d.description" placeholder="Description du chantier">'+esc(d.description)+'</textarea></div>';
@@ -553,7 +567,7 @@ function weekSummary(){
  for(var k=0;k<7;k++){
   var ds=addDays(t,k),its=itemsOn(ds);
   if(!its.length)continue;n++;
-  h+='<div class="day"><div class="dl'+(k===0?' today':'')+'">'+(k===0?'aujourd’hui<br><span class="small muted">'+frDate(ds).slice(0,5)+'</span>':dayLabel(ds))+'</div><div class="di">'+its.map(chip).join('')+'</div></div>';
+  h+='<div class="day"><div class="dl'+(k===0?' today':'')+'">'+(k===0?'aujourd’hui<br><span class="small muted">'+frDate(ds).slice(0,5)+'</span><div class="wx" data-wx="'+ds+'"></div>':dayLabel(ds))+'</div><div class="di">'+its.map(chip).join('')+'</div></div>';
  }
  return '<div class="card"><div class="plan-head"><h2 style="margin:0">7 prochains jours</h2><a class="btn sec small" href="#planning" style="margin:0">Planning</a></div>'+(n?h:'<p class="muted">Rien de prévu.</p>')+'</div>';
 }
@@ -622,6 +636,7 @@ function viewReglages(){
  h+='<label>SIRET (quand tu en auras un)</label>'+inp('s.siret',s.siret);
  h+='<div class="grid"><div class="w2"><label>IBAN (pied de devis)</label>'+inp('s.iban',s.iban)+'</div><div><label>BIC</label>'+inp('s.bic',s.bic)+'</div></div></div>';
  h+='<div class="card"><h2>Valeurs par défaut</h2><div class="grid"><div><label>Taux horaire main d’œuvre (€ HT)</label>'+numInp('s.taux',s.taux)+'</div><div><label>Forfait déplacement (€ HT)</label>'+numInp('s.deplacement',s.deplacement)+'</div><div><label>Commander les matériaux (jours avant chantier)</label>'+numInp('s.delaiCommande',s.delaiCommande)+'</div></div>';
+ h+='<label>Ville pour la météo (quand le lieu du chantier n’est pas renseigné)</label>'+inp('s.meteoVille',s.meteoVille,'ex : Willerval');
  h+='<label>Limites de prestation par défaut</label><textarea data-b="s.limites">'+esc(s.limites)+'</textarea></div>';
  h+='<div class="card"><h2>Locations</h2><div class="grid"><div><label>Prix du transport (€ HT par km)</label>'+numInp('s.prixKm',s.prixKm)+'</div><div><label>Acompte à la prise du matériel (%)</label>'+numInp('s.acomptePct',s.acomptePct)+'</div></div><label>Conditions générales du contrat de location</label><textarea data-b="s.cgl" style="min-height:220px">'+esc(s.cgl||CGL_DEFAUT)+'</textarea><button class="btn sec small" data-a="cglReset" style="margin-top:6px">Remettre le texte par défaut</button><p class="small muted">Modèle de base à faire relire par un professionnel avant de louer à des entreprises.</p><label>Conditions courtes (sur l’état des lieux)</label><textarea data-b="s.condLoc">'+esc(s.condLoc)+'</textarea></div>';
  h+=syncCard();
@@ -773,7 +788,7 @@ function locRow(L){
  return '<a class="row" href="#location-'+L.id+'"><div class="main"><b>'+esc(mName(L.machineId))+', '+esc(L.client.nom||'client ?')+'</b><span class="small muted">'+esc(L.numero)+', '+periode(L)+'</span></div><div class="side"><span class="pill '+(LCLS[si]||'st-0')+'">'+esc(L.statut)+'</span><div class="small" style="margin-top:4px"><b style="display:inline">'+eur(locCalc(L).total)+'</b></div></div></a>';
 }
 function viewParc(){
- var h='<div class="card"><h1>Parc et locations</h1><button class="btn" data-a="mNew">+ Machine</button><button class="btn dark" data-a="locNew">+ Location</button><button class="btn sec" data-a="quick">Calcul rapide</button></div>';
+ var h='<div class="card"><h1>Parc et locations</h1><button class="btn" data-a="mNew">+ Machine</button><button class="btn dark" data-a="locNew">+ Location</button><button class="btn sec" data-a="quick">Calcul rapide</button><button class="btn sec" data-a="dispo">Machines libres ?</button></div>';
  h+='<div class="card"><h2>Machines ('+state.machines.length+')</h2>';
  if(!state.machines.length)h+='<p class="muted">Ajoute ta première machine, par exemple ta scie de sol 650.</p>';
  state.machines.forEach(function(m){
@@ -795,7 +810,8 @@ function viewMachine(m){
  h+='<div class="grid"><div><label>Prix d’achat (€)</label>'+numInp('m.prixAchat',m.prixAchat)+'</div><div><label>Date d’achat</label><input type="date" data-b="m.dateAchat" value="'+esc(m.dateAchat||'')+'"></div><div><a class="btn sec small" href="#renta" style="margin-top:26px">Voir la rentabilité</a></div></div>';
  h+='<div class="grid"><div><label>Année</label>'+numInp('m.annee',m.annee)+'</div><div><label>Compteur actuel (h)</label>'+numInp('m.heures',m.heures)+'</div><div><label>Entretien toutes les (h)</label>'+numInp('m.intervalle',m.intervalle,'ex : 50')+'</div></div>';
  h+='<label>Photo</label><div class="phgrid">'+(m.photo?thumb(m.photo,'machine',0):'')+'</div><input type="file" accept="image/*" data-ph-add="machine">';
- h+='<label>Notes</label><textarea data-b="m.note" placeholder="Accessoires, consignes, particularités…">'+esc(m.note)+'</textarea></div>';
+ h+='<label>Notes</label><textarea data-b="m.note" placeholder="Accessoires, consignes, particularités…">'+esc(m.note)+'</textarea>';
+ h+='<label>Check list de contrôle (un point par ligne)</label><textarea data-b="m.checklist" style="min-height:150px">'+esc(m.checklist||CHK_DEF.join('\n'))+'</textarea></div>';
  h+='<div class="card"><h2>Tarifs de location (HT)</h2><p class="small muted">Laisse vide ce que tu ne sais pas encore : le calcul n’utilise que les cases remplies.</p>';
  h+='<div class="grid"><div><label>Jour</label>'+numInp('m.tarifs.jour',t.jour)+'</div><div><label>Week end (forfait)</label>'+numInp('m.tarifs.weekend',t.weekend)+'</div><div><label>Semaine</label>'+numInp('m.tarifs.semaine',t.semaine)+'</div></div>';
  h+='<div class="grid"><div><label>Caution</label>'+numInp('m.tarifs.caution',t.caution)+'</div><div><label>Nettoyage (forfait)</label>'+numInp('m.tarifs.nettoyage',t.nettoyage)+'</div><div><label>Usure disque (€ par mm)</label>'+numInp('m.tarifs.usureMm',t.usureMm)+'</div></div></div>';
@@ -823,6 +839,7 @@ function edlBlock(k,e,title){
  var b='L.'+k+'.';
  var h='<div class="card"><h2>'+title+'</h2><div class="grid"><div><label>Date</label><input type="date" data-b="'+b+'date" value="'+esc(e.date)+'"></div><div><label>Compteur (h)</label>'+numInp(b+'heures',e.heures)+'</div></div>';
  h+='<div class="grid"><div><label>Carburant</label><select data-b="'+b+'carburant">'+CARB.map(function(x){return '<option value="'+x+'"'+sel(e.carburant,x)+'>'+(x||'Non noté')+'</option>';}).join('')+'</select></div><div><label>Disque / usure (mm)</label>'+numInp(b+'mesure',e.mesure,'ex : 650')+'</div></div>';
+ h+=checkBlock(k,e);
  h+='<label>État, remarques</label><textarea data-b="'+b+'remarques" placeholder="Rayures, chocs, accessoires fournis…">'+esc(e.remarques)+'</textarea>';
  h+='<label>Photos ('+e.photos.length+')</label><div class="phgrid">'+e.photos.map(function(p,i){return thumb(p,k,i);}).join('')+'</div><input type="file" accept="image/*" multiple data-ph-add="'+k+'">';
  h+='<div style="margin-top:10px">'+sigBlock(k,e.sig,'Signature du client')+'</div></div>';
@@ -837,7 +854,7 @@ function viewLoc(L){
  h+='<div class="grid"><div><label>Du</label><input type="date" data-b="L.debut" data-re="1" value="'+esc(L.debut)+'"></div><div><label>Au</label><input type="date" data-b="L.fin" data-re="1" value="'+esc(L.fin)+'"></div><div><label>Tarif</label><select data-b="L.forfait" data-re="1"><option value="auto"'+sel(L.forfait,'auto')+'>Jour / semaine (auto)</option><option value="weekend"'+sel(L.forfait,'weekend')+'>Forfait week end</option></select></div></div>';
  if(cf.length)h+='<div class="warn">Attention, machine déjà prévue : '+cf.map(esc).join(' ; ')+'</div>';
  h+='</div>';
- h+='<div class="card"><h2>Client</h2>'+clientPicker('L',L)+'<div class="grid"><div class="w2"><label>Nom</label>'+inp('L.client.nom',L.client.nom)+'</div><div><label>Téléphone</label>'+inp('L.client.tel',L.client.tel,'',' type="tel"')+'</div></div><label>Adresse</label>'+inp('L.client.adresse',L.client.adresse)+'</div>';
+ h+='<div class="card"><h2>Client</h2>'+clientPicker('L',L)+'<div class="grid"><div class="w2"><label>Nom</label>'+inp('L.client.nom',L.client.nom)+'</div><div><label>Téléphone</label>'+inp('L.client.tel',L.client.tel,'',' type="tel"')+'</div></div><label>Adresse</label>'+inp('L.client.adresse',L.client.adresse)+smsButtons(L.client.tel,[['Récap de la location',locRecapTxt(L)],['Rappel de retour',locRappelTxt(L)]])+'</div>';
  h+=contratCard(L);
  h+=edlBlock('sortie',L.sortie,'Départ')+edlBlock('retour',L.retour,'Retour');
  h+='<div class="card"><h2>Prix</h2><label class="chk"><input type="checkbox" data-b="L.nettoyage" data-re="1"'+(L.nettoyage?' checked':'')+'>Facturer le nettoyage</label>';
@@ -862,6 +879,7 @@ function viewEdl(L){
  h+='<div class="dinfo"><p>Matériel : <b>'+esc(m.nom)+'</b>'+([m.marque,m.modele].filter(function(x){return x;}).length?', '+esc([m.marque,m.modele].filter(function(x){return x;}).join(' ')):'')+(m.serie?', n° de série '+esc(m.serie):'')+'</p><p>Période : <b>'+periode(L)+'</b> ('+c.days+' jour'+(c.days>1?'s':'')+')</p>'+(num(L.caution)?'<p>Caution : <b>'+eur(L.caution)+'</b>'+(L.cautionRendue?' (rendue)':'')+'</p>':'')+'</div>';
  h+='<table class="dt"><thead><tr><th style="width:150px"></th><th>Départ</th><th>Retour</th></tr></thead><tbody>';
  h+=row('Date',frDate(so.date),frDate(re.date))+row('Compteur (h)',esc(so.heures),esc(re.heures))+row('Carburant',esc(so.carburant),esc(re.carburant))+row('Disque / usure (mm)',esc(so.mesure),esc(re.mesure));
+ var cr=checkRows(L);if(cr)h+='<tr><td colspan="3" style="padding-top:8px"><b>Contrôles</b></td></tr>'+cr;
  h+='<tr><td><b>Remarques</b></td><td style="white-space:pre-wrap">'+esc(so.remarques)+'</td><td style="white-space:pre-wrap">'+esc(re.remarques)+'</td></tr></tbody></table>';
  if(so.photos.length)h+='<div class="dbox" style="white-space:normal"><b>Photos au départ</b><div class="edlph">'+imgs(so.photos)+'</div></div>';
  if(re.photos.length)h+='<div class="dbox" style="white-space:normal"><b>Photos au retour</b><div class="edlph">'+imgs(re.photos)+'</div></div>';
@@ -1139,7 +1157,7 @@ function clientPicker(kind,obj){
  h+='</select></div><div>';
  if(obj.clientId&&getClient(obj.clientId))h+='<a class="btn sec small" href="#client-'+obj.clientId+'" style="margin-top:4px">Voir la fiche</a>';
  else h+='<button class="btn sec small" data-a="clientSave" data-w="'+kind+'" style="margin-top:4px">Enregistrer comme nouveau client</button>';
- return h+'</div></div>';
+ return h+'</div></div>'+incidentAlert(obj.clientId?getClient(obj.clientId):null);
 }
 function applyClient(kind,c){
  var o=kind==='L'?curL:cur;if(!o)return;
@@ -1149,8 +1167,8 @@ function applyClient(kind,c){
  o.modifieLe=Date.now();save();render(true);
 }
 function clientRow(c){
- var nd=clientDevis(c).length,nl=clientLocs(c).length;
- return '<a class="row" href="#client-'+c.id+'"><div class="main"><b>'+esc(c.nom||'Sans nom')+'</b><span class="small muted">'+esc(c.type)+(c.ville?', '+esc(c.ville):'')+(c.tel?', '+esc(c.tel):'')+'</span></div><div class="side"><div class="small">'+nd+' devis, '+nl+' location'+(nl>1?'s':'')+'</div><div class="small muted">'+eur(clientCA(c))+' facturé</div></div></a>';
+ var nd=clientDevis(c).length,nl=clientLocs(c).length,ni=(c.incidents||[]).length;
+ return '<a class="row" href="#client-'+c.id+'"><div class="main"><b>'+esc(c.nom||'Sans nom')+'</b><span class="small muted">'+esc(c.type)+(c.ville?', '+esc(c.ville):'')+(c.tel?', '+esc(c.tel):'')+'</span>'+(ni?'<span class="small bad" style="display:block">⚠ '+ni+' incident'+(ni>1?'s':'')+'</span>':'')+'</div><div class="side"><div class="small">'+nd+' devis, '+nl+' location'+(nl>1?'s':'')+'</div><div class="small muted">'+eur(clientCA(c))+' facturé</div></div></a>';
 }
 function clientListHtml(){
  var q=clF.q.trim().toLowerCase(),l=clientsSorted().filter(function(c){return !q||[c.nom,c.ville,c.tel,c.mail,c.type].join(' ').toLowerCase().indexOf(q)>=0;});
@@ -1171,6 +1189,7 @@ function viewClient(c){
  h+='<div class="grid"><div><label>Téléphone</label>'+inp('k.tel',c.tel,'',' type="tel"')+'</div><div class="w2"><label>Mail</label>'+inp('k.mail',c.mail,'',' type="email"')+'</div></div>';
  h+='<div class="grid"><div class="w2"><label>Adresse</label>'+inp('k.adresse',c.adresse)+'</div><div><label>CP et ville</label>'+inp('k.ville',c.ville)+'</div></div>';
  h+='<label>Notes</label><textarea data-b="k.note" placeholder="Accès au chantier, préférences, contact sur place…">'+esc(c.note)+'</textarea></div>';
+ h+=incidentCard(c);
  h+='<div class="card"><h2>Historique</h2><p class="small muted">'+eur(clientCA(c))+' facturé (chantiers terminés ou payés et locations rendues ou payées)</p>';
  h+='<h2 style="margin-top:12px">Devis et chantiers ('+ds.length+')</h2>'+(ds.length?ds.map(devisRow).join(''):'<p class="muted">Aucun.</p>');
  h+='<h2 style="margin-top:12px">Locations ('+ls.length+')</h2>'+(ls.length?ls.map(locRow).join(''):'<p class="muted">Aucune.</p>')+'</div>';
@@ -1343,6 +1362,121 @@ function viewRenta(){
  return h;
 }
 
+/* ---------- check list de contrôle ---------- */
+var CHK_DEF=['Niveau d’huile moteur','Carburant','Disque ou outil en bon état','Carters et protections en place','Arrivée d’eau ou pompe','Démarrage et arrêt d’urgence','Propreté générale','Accessoires présents'];
+function checklist(m){var t=String((m&&m.checklist)||'').split('\n').map(function(x){return x.trim();}).filter(function(x){return x;});return t.length?t:CHK_DEF;}
+function checkBlock(k,e){
+ var items=checklist(getMachine(curL.machineId));if(!e.check)e.check={};
+ var h='<label>Contrôles</label><div>';
+ items.forEach(function(it,i){var v=e.check[it]||'';h+='<button class="ck '+v+'" data-a="ck" data-w="'+k+'" data-i="'+i+'">'+(v==='ok'?'✓ ':v==='nok'?'✕ ':'')+esc(it)+'</button>';});
+ return h+'</div><div class="small muted">Touche un contrôle : non vérifié, puis OK, puis défaut. La liste se modifie dans la fiche machine.</div>';
+}
+function checkRows(L){
+ var items=checklist(getMachine(L.machineId)),so=L.sortie.check||{},re=L.retour.check||{},h='',any=false;
+ function sym(v){return v==='ok'?'✓ OK':v==='nok'?'✕ Défaut':'';}
+ items.forEach(function(it){if(so[it]||re[it])any=true;h+='<tr><td>'+esc(it)+'</td><td>'+sym(so[it])+'</td><td>'+sym(re[it])+'</td></tr>';});
+ return any?h:'';
+}
+
+/* ---------- météo (Open-Meteo, sans clé) ---------- */
+var WXC={};
+function wxIcon(c){c=+c;if(c===0)return '☀️';if(c<=2)return '🌤️';if(c===3)return '☁️';if(c===45||c===48)return '🌫️';if(c>=51&&c<=57)return '🌦️';if((c>=61&&c<=67)||(c>=80&&c<=82))return '🌧️';if((c>=71&&c<=77)||c===85||c===86)return '🌨️';if(c>=95)return '⛈️';return '🌥️';}
+function wxPlace(p){return String(p||'').replace(/\(.*?\)/g,'').replace(/\b\d{5}\b/g,'').split(',').pop().trim();}
+function wxBase(){return state.settings.meteoVille||wxPlace(state.settings.adresse2)||'Willerval';}
+function wxGet(place,cb){
+ place=wxPlace(place);if(!place||!window.fetch)return cb(null);
+ var key='wx_'+place.toLowerCase();
+ if(WXC[key]&&Date.now()-WXC[key].t<3*3600e3)return cb(WXC[key]);
+ try{var c=JSON.parse(localStorage.getItem(key)||'null');if(c&&Date.now()-c.t<3*3600e3){WXC[key]=c;return cb(c);}}catch(e){}
+ if(WXC[key]&&WXC[key].pending){WXC[key].pending.push(cb);return;}
+ var waiting=[cb];WXC[key]={t:0,days:{},pending:waiting};
+ function done(o){WXC[key]=o||{t:Date.now()-2.5*3600e3,days:{}};waiting.forEach(function(f){f(o);});}
+ fetch('https://geocoding-api.open-meteo.com/v1/search?count=1&language=fr&country_code=FR&name='+encodeURIComponent(place)).then(function(r){return r.json();}).then(function(g){
+  if(!g||!g.results||!g.results.length)throw new Error('lieu');
+  var r0=g.results[0];
+  return fetch('https://api.open-meteo.com/v1/forecast?latitude='+r0.latitude+'&longitude='+r0.longitude+'&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max&timezone=Europe%2FParis&forecast_days=16').then(function(r){return r.json();}).then(function(f){
+   var o={t:Date.now(),name:r0.name,days:{}},dl=f.daily;
+   dl.time.forEach(function(d,i){o.days[d]={c:dl.weather_code[i],max:dl.temperature_2m_max[i],min:dl.temperature_2m_min[i],p:dl.precipitation_sum[i],w:dl.wind_speed_10m_max[i]};});
+   try{localStorage.setItem(key,JSON.stringify(o));}catch(e){}
+   done(o);
+  });
+ }).catch(function(){done(null);});
+}
+function wxWarn(d){var w=[];if(!d)return w;if(d.min<=0)w.push('gel');if(d.p>=5)w.push('pluie');if(d.w>=50)w.push('vent');return w;}
+function fillWeather(){
+ var els=document.querySelectorAll('[data-wx]'),chips=document.querySelectorAll('[data-wxp]');
+ if(!els.length&&!chips.length)return;
+ if(els.length)wxGet(wxBase(),function(o){
+  if(!o)return;
+  for(var i=0;i<els.length;i++){
+   var d=o.days[els[i].getAttribute('data-wx')];if(!d)continue;
+   var ws=wxWarn(d);
+   els[i].innerHTML=wxIcon(d.c)+' '+Math.round(d.min)+'° / '+Math.round(d.max)+'°'+(d.p>=1?', '+fq(Math.round(d.p))+' mm':'')+(d.w>=40?', '+Math.round(d.w)+' km/h':'')+(ws.length?' <span class="wxw">⚠ '+ws.join(', ')+'</span>':'');
+  }
+ });
+ var byPlace={};
+ for(var j=0;j<chips.length;j++){var pl=wxPlace(chips[j].getAttribute('data-wxp'))||wxBase();(byPlace[pl]=byPlace[pl]||[]).push(chips[j]);}
+ Object.keys(byPlace).slice(0,6).forEach(function(pl){
+  wxGet(pl,function(o){
+   byPlace[pl].forEach(function(el){
+    if(el.getAttribute('data-wxdone'))return;
+    var d=o&&o.days[el.getAttribute('data-wxd')],ws=wxWarn(d);
+    if(ws.length){el.setAttribute('data-wxdone','1');el.insertAdjacentHTML('beforeend',' <span class="wxw">⚠ '+ws.join(', ')+'</span>');el.title='Météo à '+(o.name||pl)+' : '+Math.round(d.min)+'° / '+Math.round(d.max)+'°, '+fq(Math.round(d.p))+' mm, vent '+Math.round(d.w)+' km/h';}
+   });
+  });
+ });
+}
+
+/* ---------- disponibilités ---------- */
+function openDispo(){
+ if(!state.machines.length){toast('Ajoute d’abord une machine');return;}
+ var t=today();
+ showModal('<h2>Quelles machines sont libres ?</h2><div id="dpf" class="grid"><div><label>Du</label><input type="date" id="dp1" value="'+t+'"></div><div><label>Au</label><input type="date" id="dp2" value="'+addDays(t,2)+'"></div></div><div id="dpR" style="margin-top:12px"></div><button class="btn sec" data-a="close">Fermer</button>');
+ function upd(){
+  var d1=$('dp1').value,d2=$('dp2').value||d1,h='';
+  if(!d1){$('dpR').innerHTML='';return;}
+  if(d2<d1)d2=d1;
+  state.machines.forEach(function(m){
+   var cf=locConflicts({id:'_tmp',machineId:m.id,debut:d1,fin:d2,statut:'réservée'});
+   h+='<div class="todo"><div class="t"><b>'+esc(m.nom||'Machine')+'</b><div class="small '+(cf.length?'bad':'good')+'">'+(cf.length?'Occupée : '+cf.map(esc).join(' ; '):'✓ Libre sur toute la période')+'</div></div>'+(cf.length?'':'<button class="btn small" data-a="dispoBook" data-id="'+m.id+'">Réserver</button>')+'</div>';
+  });
+  $('dpR').innerHTML=h;
+ }
+ $('dpf').addEventListener('input',upd);$('dpf').addEventListener('change',upd);upd();
+}
+
+/* ---------- messages au client ---------- */
+function smsLink(tel,txt){var n=String(tel||'').replace(/[^\d+]/g,''),ios=/iPad|iPhone|iPod/.test(navigator.userAgent);return 'sms:'+n+(ios?'&':'?')+'body='+encodeURIComponent(txt);}
+function signature(){var n=String(state.settings.noms||'').split(',')[0].trim();return n?'\n'+n:'';}
+function locRecapTxt(L){
+ var c=locCalc(L);
+ return 'Bonjour, je vous confirme la location : '+mName(L.machineId)+' '+periode(L)+' ('+c.days+' jour'+(c.days>1?'s':'')+'). Prix : '+eur(c.base)+'. Acompte de '+eur(c.acompte)+' à régler à la prise du matériel'+(num(L.caution)?', avec une caution de '+eur(L.caution):'')+'. Le solde et les éventuels frais (usure, carburant, nettoyage) sont à régler au retour. Merci !'+signature();
+}
+function locRappelTxt(L){return 'Bonjour, petit rappel : le retour de la '+mName(L.machineId)+' est prévu le '+frDate(locEnd(L))+'. Merci de la rendre propre et avec le plein. Bonne journée !'+signature();}
+function devisTxt(d){var t=totaux(d);return 'Bonjour, voici le récapitulatif du devis '+d.numero+(d.reference?' ('+d.reference+')':'')+' : '+eur(t.facture)+' de prestation'+(t.client?', et '+eur(t.client)+' de fournitures à régler directement aux fournisseurs':'')+'. Je vous envoie le devis détaillé en PDF. N’hésitez pas si vous avez des questions.'+signature();}
+function smsButtons(tel,list){
+ var h='<div style="margin-top:8px">';
+ list.forEach(function(x){h+='<a class="btn sec small" href="'+smsLink(tel,x[1])+'">💬 '+x[0]+'</a>';});
+ return h+(tel?'':'<div class="small muted">Pas de téléphone renseigné : tu choisiras le contact dans Messages.</div>')+'</div>';
+}
+
+/* ---------- incidents client ---------- */
+var INC_TYPES=['retard de paiement','casse ou dégât','caution retenue','retard de restitution','autre'];
+function incidents(c){if(!c.incidents)c.incidents=[];return c.incidents;}
+function incidentAlert(c){
+ if(!c||!c.incidents||!c.incidents.length)return '';
+ var l=c.incidents.slice().sort(function(a,b){return a.date<b.date?1:-1;})[0];
+ return '<div class="warn">⚠ '+c.incidents.length+' incident'+(c.incidents.length>1?'s':'')+' avec ce client. Dernier le '+frDate(l.date)+' : '+esc(l.type)+(l.note?', '+esc(l.note):'')+'. <a href="#client-'+c.id+'">Voir la fiche</a></div>';
+}
+function incidentCard(c){
+ var h='<div class="card"><h2>Incidents ('+incidents(c).length+')</h2>';
+ c.incidents.forEach(function(x,i){h+='<div class="todo"><div class="t"><b>'+esc(x.type)+'</b><div class="small muted">'+frDate(x.date)+(x.note?', '+esc(x.note):'')+(num(x.montant)?', '+eur(x.montant):'')+'</div></div><button class="btn sec icon" data-a="incDel" data-i="'+i+'">✕</button></div>';});
+ if(!c.incidents.length)h+='<p class="muted small">Aucun incident. Ils apparaîtront en alerte dès que tu choisis ce client dans un devis ou une location.</p>';
+ h+='<div class="grid"><div><label>Date</label><input type="date" id="inD" value="'+today()+'"></div><div><label>Type</label><select id="inT">'+INC_TYPES.map(function(t){return '<option>'+t+'</option>';}).join('')+'</select></div><div><label>Montant (€)</label><input id="inM" inputmode="decimal"></div></div>';
+ h+='<label>Détail</label><input id="inN" placeholder="ex : payé avec 3 semaines de retard"><button class="btn small" data-a="incAdd" style="margin-top:8px">+ Noter l’incident</button></div>';
+ return h;
+}
+
 /* ---------- rendu et routage ---------- */
 function render(keep){
  flush();
@@ -1370,6 +1504,7 @@ function render(keep){
  window.scrollTo(0,keep?y:0);
  markMenu(h);
  hydrate();
+ try{fillWeather();}catch(e){}
 }
 function updateTotals(){
  if(!cur)return;
@@ -1695,6 +1830,18 @@ document.addEventListener('click',function(e){
    var nc2=w==='L'?newClient({nom:co.client.nom,tel:co.client.tel,adresse:co.client.adresse}):newClient(co.client);
    co.clientId=nc2.id;co.modifieLe=Date.now();save();render(true);toast('Client enregistré');break;
   case 'cglReset':if(confirm('Remettre les conditions générales par défaut ?')){s.cgl='';state.settingsModif=Date.now();save();render(true);}break;
+  case 'ck':
+   var cki=checklist(getMachine(curL.machineId))[i],cko=curL[w];if(!cko.check)cko.check={};
+   cko.check[cki]=cko.check[cki]==='ok'?'nok':cko.check[cki]==='nok'?'':'ok';
+   curL.modifieLe=Date.now();save();render(true);break;
+  case 'dispo':openDispo();break;
+  case 'dispoBook':
+   var b1=$('dp1').value,b2=$('dp2').value||b1;if(b2<b1)b2=b1;
+   var nb=newLoc(el.getAttribute('data-id'));nb.debut=b1;nb.fin=b2;save();closeModal();location.hash='#location-'+nb.id;break;
+  case 'incAdd':
+   incidents(curC).push({id:uid(),date:$('inD').value||today(),type:$('inT').value,note:$('inN').value.trim(),montant:$('inM').value});
+   curC.modifieLe=Date.now();save();render(true);toast('Incident noté');break;
+  case 'incDel':if(confirm('Supprimer cet incident ?')){curC.incidents.splice(i,1);curC.modifieLe=Date.now();save();render(true);}break;
   case 'chAll':chF.all=!chF.all;render(true);break;
   case 'syncNow':sync(true);break;
   case 'syncSave':
