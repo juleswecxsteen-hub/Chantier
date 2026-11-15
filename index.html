@@ -28,6 +28,11 @@ a{color:#d9731a}
 .syncb{margin-left:auto;background:#3a3a3a;color:#cfe8d4;border:0;border-radius:16px;padding:6px 12px;font-size:13px;cursor:pointer;-webkit-appearance:none;font-family:inherit}
 .syncb.busy{color:#f8d36b}
 .syncb.err{color:#ffb3a8}
+.bar{height:8px;background:#e4e3e0;border-radius:4px;overflow:hidden;margin-top:6px;max-width:260px}
+.bar i{display:block;height:100%;background:#f28c28}
+.good{color:#2e7d32}
+.bad{color:#c0392b}
+input[type=range]{-webkit-appearance:auto;width:100%;margin:10px 0}
 .veil{position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:35;display:none}
 .veil.open{display:block}
 main{max-width:1020px;margin:0 auto;padding:14px}
@@ -185,6 +190,7 @@ textarea{min-height:64px;resize:vertical}
  <div class="dhead">Chantiers</div>
  <a href="#home"><span class="ic">🏠</span>Accueil</a>
  <a href="#devislist"><span class="ic">📄</span>Devis</a>
+ <a href="#chantiers"><span class="ic">🏗️</span>Chantiers</a>
  <a href="#planning"><span class="ic">📅</span>Planning</a>
  <a href="#parc"><span class="ic">🚜</span>Parc et locations</a>
  <a href="#catalogue"><span class="ic">📋</span>Catalogue</a>
@@ -430,7 +436,7 @@ function sigBlock(who,img,label){
 function viewDevis(d){
  var t=totaux(d),h='';
  h+='<div class="card"><a class="btn sec small" href="#home">← Accueil</a><h1>Devis '+esc(d.numero)+'</h1>';
- h+='<a class="btn dark" href="#apercu-'+d.id+'">Aperçu / PDF</a><button class="btn sec" data-a="devisPlan">'+(hasEvent(d.id)?'Voir au planning':'Mettre au planning')+'</button><button class="btn sec" data-a="calc">Calcul d’ouvrage</button><button class="btn sec" data-a="dup">Dupliquer</button><button class="btn danger" data-a="del">Supprimer</button>';
+ h+='<a class="btn dark" href="#apercu-'+d.id+'">Aperçu / PDF</a><a class="btn" href="#suivi-'+d.id+'">Suivi de chantier</a><button class="btn sec" data-a="devisPlan">'+(hasEvent(d.id)?'Voir au planning':'Mettre au planning')+'</button><button class="btn sec" data-a="calc">Calcul d’ouvrage</button><button class="btn sec" data-a="dup">Dupliquer</button><button class="btn danger" data-a="del">Supprimer</button>';
  h+='<div class="small muted">Créé le '+stamp(d.creeLe)+', modifié le '+stamp(d.modifieLe)+'</div></div>';
 
  h+='<div class="card"><h2>Infos</h2><div class="grid"><div><label>N° devis</label>'+inp('d.numero',d.numero)+'</div><div><label>Indice</label>'+inp('d.indice',d.indice)+'</div><div><label>Date du devis</label><input type="date" data-b="d.date" value="'+esc(d.date)+'"></div></div>';
@@ -688,13 +694,15 @@ function addPhotos(k,files){
   if(!list.length){save();render(true);if(fail)toast(fail+' photo(s) non enregistrée(s)');return;}
   processPhoto(list.shift(),function(id){
    if(!id)fail++;
+   else if(k.indexOf('j:')===0&&cur){var je=jEntry(k.slice(2));if(je){je.photos.push(id);touch();}}
    else if(k==='machine'&&curM){if(curM.photo)idbDel(curM.photo);curM.photo=id;curM.modifieLe=Date.now();}
    else if(curL&&curL[k]){curL[k].photos.push(id);curL.modifieLe=Date.now();}
    next();
   });
  })();
 }
-function allPhotoIds(){var ids=[];state.machines.forEach(function(m){if(m.photo)ids.push(m.photo);});state.locations.forEach(function(L){ids=ids.concat(L.sortie.photos||[],L.retour.photos||[]);});return ids;}
+function jEntry(id){if(!cur||!cur.suivi)return null;for(var i=0;i<cur.suivi.journal.length;i++)if(cur.suivi.journal[i].id===id)return cur.suivi.journal[i];return null;}
+function allPhotoIds(){var ids=[];state.devis.forEach(function(d){if(d.suivi)d.suivi.journal.forEach(function(j){ids=ids.concat(j.photos||[]);});});state.machines.forEach(function(m){if(m.photo)ids.push(m.photo);});state.locations.forEach(function(L){ids=ids.concat(L.sortie.photos||[],L.retour.photos||[]);});return ids;}
 function exportData(cb){var o=JSON.parse(JSON.stringify(state)),ids=allPhotoIds();o.photos={};(function next(){if(!ids.length)return cb(JSON.stringify(o));var id=ids.shift();phGet(id,function(d){if(d)o.photos[id]=d;next();});})();}
 
 /* ---------- parc et locations : données ---------- */
@@ -899,8 +907,8 @@ function mergeState(L,R){
 function r2(n){return Math.round(num(n)*100)/100;}
 function summary(){
  function v(x){return x==null?'':x;}
- var D=[['N° devis','Date','Statut','Client','Référence','Lieu','Date chantier','Fournitures client','Prestation','Budget global','Échéance','Modifié le']];
- state.devis.forEach(function(d){var t=totaux(d);D.push([v(d.numero),frDate(d.date),v(d.statut),v(d.client.nom),v(d.reference),v(d.lieu),frDate(d.dateChantier),r2(t.client),r2(t.facture),r2(t.global),frDate(d.echeance),stamp(d.modifieLe)]);});
+ var D=[['N° devis','Date','Statut','Client','Référence','Lieu','Date chantier','Fournitures client','Prestation','Budget global','Échéance','Avancement %','Heures prévues','Heures réelles','Dépenses','Marge','Modifié le']];
+ state.devis.forEach(function(d){var t=totaux(d);D.push([v(d.numero),frDate(d.date),v(d.statut),v(d.client.nom),v(d.reference),v(d.lieu),frDate(d.dateChantier),r2(t.client),r2(t.facture),r2(t.global),frDate(d.echeance)].concat((function(){var b=bilan(d);return [b.av,r2(b.hp),r2(b.hr),r2(b.dn),r2(b.marge)];})()).concat([stamp(d.modifieLe)]));});
  var Lo=[['N° location','Machine','Client','Téléphone','Du','Au','Jours','Statut','Total HT','Caution','Caution rendue']];
  state.locations.forEach(function(L){var c=locCalc(L);Lo.push([v(L.numero),mName(L.machineId),v(L.client.nom),v(L.client.tel),frDate(L.debut),frDate(locEnd(L)),c.days,v(L.statut),r2(c.total),r2(L.caution),L.cautionRendue?'oui':'non']);});
  var M=[['Machine','Marque','Modèle','N° série','Compteur (h)','Jour','Week end','Semaine','Caution','Entretien à prévoir']];
@@ -982,6 +990,86 @@ function syncCard(){
 }
 var GS_CODE="// Synchro de l'appli Chantiers\n// 1. Remplace CHANGE-MOI par un mot de passe à toi (le même que dans l'appli, Réglages).\n// 2. Déployer > Nouveau déploiement > Application Web, Exécuter en tant que : Moi, Accès : Tout le monde.\nvar KEY = 'CHANGE-MOI';\n\nfunction out_(o) {\n  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);\n}\nfunction props_() { return PropertiesService.getScriptProperties(); }\n\nfunction dataFile_() {\n  var p = props_(), id = p.getProperty('dataFile');\n  if (id) { try { return DriveApp.getFileById(id); } catch (e) {} }\n  var f = DriveApp.createFile('chantiers-donnees.json', '{}', MimeType.PLAIN_TEXT);\n  p.setProperty('dataFile', f.getId());\n  return f;\n}\nfunction photoFolder_() {\n  var p = props_(), id = p.getProperty('photoFolder');\n  if (id) { try { return DriveApp.getFolderById(id); } catch (e) {} }\n  var f = DriveApp.createFolder('Chantiers photos');\n  p.setProperty('photoFolder', f.getId());\n  return f;\n}\nfunction rev_() { return Number(props_().getProperty('rev') || 0); }\n\nfunction doGet(e) {\n  var q = (e && e.parameter) || {};\n  if (q.key !== KEY) return out_({ ok: false, error: 'cle' });\n  if (q.action === 'pull') {\n    return out_({ ok: true, rev: rev_(), data: dataFile_().getBlob().getDataAsString() });\n  }\n  if (q.action === 'photo') {\n    var it = photoFolder_().getFilesByName(q.id + '.jpg');\n    if (!it.hasNext()) return out_({ ok: false, error: 'absente' });\n    var b = it.next().getBlob();\n    return out_({ ok: true, data: 'data:image/jpeg;base64,' + Utilities.base64Encode(b.getBytes()) });\n  }\n  return out_({ ok: true, pong: true, rev: rev_() });\n}\n\nfunction doPost(e) {\n  var b = JSON.parse(e.postData.contents);\n  if (b.key !== KEY) return out_({ ok: false, error: 'cle' });\n  var lock = LockService.getScriptLock();\n  lock.waitLock(25000);\n  try {\n    if (b.action === 'push') {\n      if (String(b.rev) !== String(rev_())) return out_({ ok: false, conflict: true, rev: rev_() });\n      dataFile_().setContent(b.data);\n      var r = rev_() + 1;\n      props_().setProperty('rev', String(r));\n      if (b.summary) { try { writeSheets_(b.summary); } catch (err) {} }\n      return out_({ ok: true, rev: r });\n    }\n    if (b.action === 'photo') {\n      var fo = photoFolder_();\n      if (!fo.getFilesByName(b.id + '.jpg').hasNext()) {\n        var bytes = Utilities.base64Decode(String(b.data).split(',')[1]);\n        fo.createFile(Utilities.newBlob(bytes, 'image/jpeg', b.id + '.jpg'));\n      }\n      return out_({ ok: true });\n    }\n  } finally {\n    lock.releaseLock();\n  }\n  return out_({ ok: false, error: 'action' });\n}\n\n// Copie lisible des données dans les onglets du Google Sheet\nfunction writeSheets_(sum) {\n  var ss = SpreadsheetApp.getActiveSpreadsheet();\n  if (!ss) return;\n  Object.keys(sum).forEach(function (name) {\n    var rows = sum[name];\n    var sh = ss.getSheetByName(name) || ss.insertSheet(name);\n    sh.clearContents();\n    if (rows.length && rows[0].length) {\n      sh.getRange(1, 1, rows.length, rows[0].length).setValues(rows);\n      sh.getRange(1, 1, 1, rows[0].length).setFontWeight('bold');\n      sh.setFrozenRows(1);\n    }\n  });\n}\n";
 
+/* ---------- suivi de chantier ---------- */
+var chF={all:false};
+function suivi(d){if(!d.suivi)d.suivi={avancement:'0',journal:[],depenses:[]};return d.suivi;}
+function isHeure(u){u=String(u||'').trim().toLowerCase();return u==='h'||u.indexOf('heure')===0;}
+function bilan(d){
+ var s=suivi(d),t=totaux(d),hp=0,moP=0,hr=0,dn=0,dc=0;
+ d.postes.forEach(function(p){if(p.type==='client')return;p.lignes.forEach(function(l){if(isHeure(l.unite)){hp+=num(l.qte);moP+=ligneTot(l);}});});
+ s.journal.forEach(function(j){hr+=num(j.personnes||1)*num(j.heures);});
+ s.depenses.forEach(function(x){if(x.qui==='client')dc+=num(x.montant);else dn+=num(x.montant);});
+ var marge=t.facture-dn;
+ return {fact:t.facture,client:t.client,hp:hp,hr:hr,dn:dn,dc:dc,marge:marge,gainH:hr?marge/hr:0,prevuH:hp?moP/hp:0,av:Math.max(0,Math.min(100,num(s.avancement)))};
+}
+function bar(p){return '<div class="bar"><i style="width:'+p+'%"></i></div>';}
+function ecart(a,b,inv){if(!b)return '';var d=a-b,cls=(inv?d<0:d>0)?'bad':'good';return ' <span class="'+cls+'">('+(d>0?'+':'')+fq(Math.round(d*10)/10)+')</span>';}
+function bilanCard(d){
+ var b=bilan(d),h='<div class="card recap" id="bilanBox"><h2>Bilan</h2>';
+ h+='<div><span>Prestation facturée</span><b>'+eur(b.fact)+'</b></div>';
+ h+='<div><span>Dépenses à notre charge</span><b>'+eur(b.dn)+'</b></div>';
+ h+='<div class="big"><span>Marge</span><span>'+eur(b.marge)+'</span></div>';
+ h+='<div><span>Part chacun (50/50)</span><b>'+eur(b.marge/2)+'</b></div>';
+ h+='<div><span>Heures prévues / réelles</span><b>'+fq(b.hp)+' h / '+fq(b.hr)+' h'+ecart(b.hr,b.hp)+'</b></div>';
+ h+='<div><span>Gagné par heure travaillée</span><b>'+(b.hr?eur(b.gainH):'pas encore d’heures')+(b.prevuH?' <span class="muted small">(prévu '+eur(b.prevuH)+')</span>':'')+'</b></div>';
+ if(b.client||b.dc)h+='<div><span>Fournitures client, prévu / réel</span><b>'+eur(b.client)+' / '+eur(b.dc)+'</b></div>';
+ return h+'</div>';
+}
+function viewSuivi(d){
+ var s=suivi(d),b=bilan(d),h='';
+ h+='<div class="card"><a class="btn sec small" href="#devis-'+d.id+'">← Devis</a><h1>Suivi : '+esc(d.client.nom||d.numero)+'</h1>';
+ h+='<div class="small muted">'+esc(d.numero)+(d.reference?', '+esc(d.reference):'')+(d.lieu?', '+esc(d.lieu):'')+'</div>';
+ h+='<div style="margin-top:10px"><a class="btn dark" href="#rapport-'+d.id+'">Compte rendu client / PDF</a></div></div>';
+ h+='<div class="card"><h2>Avancement : <span id="avLbl">'+b.av+' %</span></h2><input type="range" min="0" max="100" step="5" data-b="d.suivi.avancement" data-av="1" value="'+b.av+'" style="padding:0;border:0">';
+ h+='<label>Statut</label><select data-b="d.statut" data-re="1">'+STATUTS.map(function(x){return '<option'+sel(d.statut,x)+'>'+x+'</option>';}).join('')+'</select></div>';
+ h+=bilanCard(d);
+ h+='<div class="card"><h2>Journal</h2><div class="grid"><div><label>Date</label><input type="date" id="jD" value="'+today()+'"></div><div><label>Personnes</label><input id="jP" inputmode="decimal" value="2"></div><div><label>Heures chacun</label><input id="jH" inputmode="decimal" placeholder="ex : 8"></div></div>';
+ h+='<label>Ce qui a été fait, problèmes, à prévoir</label><textarea id="jN" placeholder="ex : coffrage et ferraillage terminés, coulage demain 9h30"></textarea><button class="btn" data-a="addJ" style="margin-top:8px">+ Ajouter la journée</button></div>';
+ var js=s.journal.map(function(j,i){return {j:j,i:i};}).sort(function(a,b){return a.j.date<b.j.date?1:a.j.date>b.j.date?-1:b.i-a.i;});
+ js.forEach(function(x){
+  var j=x.j,i=x.i,bb='d.suivi.journal.'+i+'.';
+  h+='<div class="card"><div class="plan-head"><h2 style="margin:0;text-transform:capitalize">'+longDate(j.date)+'</h2><button class="btn sec icon" data-a="delJ" data-i="'+i+'">✕</button></div>';
+  h+='<div class="grid"><div><label>Date</label><input type="date" data-b="'+bb+'date" value="'+esc(j.date)+'"></div><div><label>Personnes</label>'+numInp(bb+'personnes',j.personnes)+'</div><div><label>Heures chacun</label>'+numInp(bb+'heures',j.heures)+'</div></div>';
+  h+='<label>Notes</label><textarea data-b="'+bb+'note">'+esc(j.note)+'</textarea>';
+  h+='<label>Photos ('+j.photos.length+')</label><div class="phgrid">'+j.photos.map(function(p,k){return thumb(p,'j:'+j.id,k);}).join('')+'</div><input type="file" accept="image/*" multiple data-ph-add="j:'+j.id+'"></div>';
+ });
+ h+='<div class="card"><h2>Dépenses</h2><p class="small muted">Ce que vous payez vous mêmes (carburant, consommables, location de benne…) réduit la marge. Les achats payés par le client sont notés pour comparer avec le prévu.</p>';
+ s.depenses.forEach(function(x,i){h+='<div class="todo"><div class="t"><b>'+esc(x.des||'Dépense')+'</b><div class="small muted">'+frDate(x.date)+', '+(x.qui==='client'?'payé par le client':'à notre charge')+'</div></div><b style="margin-right:8px">'+eur(x.montant)+'</b><button class="btn sec icon" data-a="delDep" data-i="'+i+'">✕</button></div>';});
+ h+='<div class="grid"><div><label>Date</label><input type="date" id="dD" value="'+today()+'"></div><div class="w2"><label>Désignation</label><input id="dT" placeholder="ex : gasoil, disque, benne"></div></div>';
+ h+='<div class="grid"><div><label>Montant (€)</label><input id="dM" inputmode="decimal"></div><div><label>Payé par</label><select id="dQ"><option value="nous">Nous (caisse chantier)</option><option value="client">Le client</option></select></div></div><button class="btn" data-a="addDep" style="margin-top:8px">+ Ajouter la dépense</button></div>';
+ return h;
+}
+function viewChantiers(){
+ var act=['signé','en cours','terminé'],list=state.devis.filter(function(d){return act.indexOf(d.statut)>=0||(chF.all&&d.statut==='payé');});
+ var h='<div class="card"><h1>Chantiers</h1><p class="small muted">Les devis signés, en cours et terminés. Ouvre un chantier pour noter les journées, les dépenses et les photos.</p>';
+ h+='<label class="chk"><input type="checkbox" data-a="chAll"'+(chF.all?' checked':'')+'>Afficher aussi les chantiers payés</label></div><div class="card">';
+ if(!list.length)h+='<p class="muted">Aucun chantier. Passe un devis en "signé" pour le voir ici.</p>';
+ var tm=0;
+ list.forEach(function(d){
+  var b=bilan(d),si=STATUTS.indexOf(d.statut);tm+=b.marge;
+  h+='<a class="row" href="#suivi-'+d.id+'"><div class="main"><b>'+esc(d.client.nom||'Client à définir')+'</b><span class="small muted">'+esc(d.reference||d.numero)+(d.dateChantier?', le '+frDate(d.dateChantier):'')+', '+fq(b.hr)+' h sur '+fq(b.hp)+' h prévues</span>'+bar(b.av)+'</div>';
+  h+='<div class="side"><span class="pill st-'+si+'">'+esc(d.statut)+'</span><div class="small" style="margin-top:4px">'+b.av+' %</div><div class="small"><b style="display:inline">'+eur(b.marge)+'</b> marge</div></div></a>';
+ });
+ if(list.length)h+='<p class="small muted" style="margin-top:10px">Marge totale affichée : '+eur(tm)+', soit '+eur(tm/2)+' chacun.</p>';
+ return h+'</div>';
+}
+function viewRapport(d){
+ var s=suivi(d),st=state.settings,b=bilan(d),h='';
+ var js=s.journal.slice().sort(function(a,c){return a.date<c.date?-1:1;});
+ h+='<div class="card no-print"><a class="btn sec" href="#suivi-'+d.id+'">← Suivi</a><button class="btn" data-a="print">Imprimer / PDF</button><p class="small muted">Compte rendu sans les prix ni les marges, à envoyer au client. Attends que les photos soient affichées avant d’imprimer.</p></div>';
+ h+='<div class="docwrap"><div class="doc">';
+ h+='<table class="dh"><tr><td><b>'+esc(st.noms||'Vos noms (Réglages)')+'</b><br>'+(st.tel?'Tél : '+esc(st.tel)+'<br>':'')+(st.mail?'Mail : '+esc(st.mail):'')+'</td><td>'+esc(st.adresse1)+'<br>'+esc(st.adresse2)+'</td><td class="dh-r"><b>'+esc(d.client.nom)+'</b><br>'+esc(d.client.adresse)+'<br>'+esc(d.client.ville)+'</td></tr></table>';
+ h+='<div class="dbar"><span>COMPTE RENDU DE CHANTIER</span><span>'+esc(d.numero)+'</span><span>'+frDate(today())+'</span></div>';
+ h+='<div class="dinfo">'+(d.reference?'<p>Chantier : <b>'+esc(d.reference)+'</b></p>':'')+(d.lieu?'<p>Lieu : <b>'+esc(d.lieu)+'</b></p>':'')+'<p>Avancement : <b>'+b.av+' %</b></p>'+(d.description?'<p style="white-space:pre-wrap">'+esc(d.description)+'</p>':'')+'</div>';
+ if(!js.length)h+='<div class="dbox">Aucune journée enregistrée pour le moment.</div>';
+ js.forEach(function(j){
+  h+='<div class="dbox" style="white-space:normal;page-break-inside:avoid"><b style="text-transform:capitalize">'+longDate(j.date)+'</b>'+(num(j.heures)?' <span class="small">('+fq(j.personnes||1)+' pers., '+fq(j.heures)+' h)</span>':'')+(j.note?'<div style="white-space:pre-wrap;margin-top:4px">'+esc(j.note)+'</div>':'');
+  if(j.photos.length)h+='<div class="edlph" style="margin-top:6px">'+j.photos.map(function(p){return '<img data-ph="'+p+'" alt="">';}).join('')+'</div>';
+  h+='</div>';
+ });
+ return h+'</div></div>';
+}
+
 /* ---------- rendu et routage ---------- */
 function render(keep){
  flush();
@@ -992,6 +1080,9 @@ function render(keep){
  else if(h.indexOf('apercu-')===0){cur=getDevis(h.slice(7));if(!cur){location.hash='#home';return;}app.innerHTML=viewApercu(cur);}
  else if(h==='planning'){cur=null;app.innerHTML=viewPlanning();if(pendingEv){var pe=pendingEv;pendingEv=null;openEv(pe);}}
  else if(h==='devislist'){cur=null;app.innerHTML=viewDevisList();$('dvQ').addEventListener('input',function(){dvF.q=this.value;$('dvList').innerHTML=devisListHtml();});}
+ else if(h==='chantiers'){cur=null;app.innerHTML=viewChantiers();}
+ else if(h.indexOf('suivi-')===0){cur=getDevis(h.slice(6));if(!cur){location.hash='#chantiers';return;}app.innerHTML=viewSuivi(cur);}
+ else if(h.indexOf('rapport-')===0){cur=getDevis(h.slice(8));if(!cur){location.hash='#chantiers';return;}app.innerHTML=viewRapport(cur);}
  else if(h==='parc'){cur=null;app.innerHTML=viewParc();}
  else if(h.indexOf('machine-')===0){cur=null;curM=getMachine(h.slice(8));if(!curM){location.hash='#parc';return;}app.innerHTML=viewMachine(curM);}
  else if(h.indexOf('location-')===0){cur=null;curL=getLoc(h.slice(9));if(!curL){location.hash='#parc';return;}app.innerHTML=viewLoc(curL);}
@@ -1029,6 +1120,8 @@ function setB(path,val){
   if(/^L\.(sortie|retour)\.heures$/.test(path)){var mm=getMachine(curL.machineId);if(mm&&num(val)>num(mm.heures)){mm.heures=String(val);mm.modifieLe=Date.now();}}
   var lp=$('locprix');if(lp)lp.innerHTML=prixTable(locCalc(curL));
  }
+ if(path.indexOf('d.suivi.')===0&&$('bilanBox')&&cur)$('bilanBox').outerHTML=bilanCard(cur);
+ if(path==='d.suivi.avancement'&&$('avLbl'))$('avLbl').textContent=Math.round(num(val))+' %';
  updateTotals();saveSoon();
 }
 function lineFromPath(path){var m=path.match(/^d\.postes\.(\d+)\.lignes\.(\d+)\./);if(!m||!cur)return null;var p=cur.postes[+m[1]];return p?p.lignes[+m[2]]:null;}
@@ -1048,6 +1141,11 @@ document.addEventListener('change',function(e){
   var l=lineFromPath(b),c=findCat(el.value);
   if(l&&c&&!num(l.pu)){l.unite=c.unite||l.unite;l.pu=String(c.pu||'');save();render(true);return;}
  }
+ if(el.getAttribute('data-av')&&cur){
+  var av=num(el.value);
+  if(av>=100&&(cur.statut==='signé'||cur.statut==='en cours')){cur.statut='terminé';touch();save();render(true);toast('Chantier passé en terminé');return;}
+  if(av>0&&cur.statut==='signé'){cur.statut='en cours';touch();save();render(true);toast('Chantier passé en cours');return;}
+ }
  if(el.getAttribute('data-re')){save();render(true);}
 });
 window.addEventListener('hashchange',function(){closeModal();closeMenu();render(false);});
@@ -1057,7 +1155,7 @@ $('burger').addEventListener('click',function(){if($('drawer').classList.contain
 $('veil').addEventListener('click',closeMenu);
 $('drawer').addEventListener('click',function(e){if(e.target.closest&&e.target.closest('a'))closeMenu();});
 function markMenu(h){
- var sec=h.indexOf('devis-')===0||h.indexOf('apercu-')===0?'devislist':(h.indexOf('machine-')===0||h.indexOf('location-')===0||h.indexOf('edl-')===0)?'parc':h;
+ var sec=h.indexOf('devis-')===0||h.indexOf('apercu-')===0?'devislist':(h.indexOf('suivi-')===0||h.indexOf('rapport-')===0)?'chantiers':(h.indexOf('machine-')===0||h.indexOf('location-')===0||h.indexOf('edl-')===0)?'parc':h;
  var as=$('drawer').querySelectorAll('a');
  for(var i=0;i<as.length;i++){var t=as[i].getAttribute('href').slice(1);if(t===sec||(sec===''&&t==='home'))as[i].classList.add('on');else as[i].classList.remove('on');}
 }
@@ -1235,13 +1333,26 @@ document.addEventListener('click',function(e){
   case 'locPlan':plan.ref=curL.debut||today();plan.mode='semaine';location.hash='#planning';break;
   case 'phDel':
    if(!confirm('Supprimer cette photo ?'))break;
-   if(w==='machine'){idbDel(curM.photo);curM.photo='';curM.modifieLe=Date.now();}
+   if(w.indexOf('j:')===0){var jx=jEntry(w.slice(2));if(jx){idbDel(jx.photos.splice(i,1)[0]);touch();}}
+   else if(w==='machine'){idbDel(curM.photo);curM.photo='';curM.modifieLe=Date.now();}
    else{idbDel(curL[w].photos.splice(i,1)[0]);curL.modifieLe=Date.now();}
    save();render(true);break;
   case 'quick':openQuick();break;
   case 'quickLoc':
    var q=quickObj(),ql=newLoc(q.machineId);ql.fin=q.fin;ql.forfait=q.forfait;ql.nettoyage=q.nettoyage;ql.km=q.km;save();closeModal();location.hash='#location-'+ql.id;break;
   case 'dvSt':dvF.st=el.getAttribute('data-s');render(true);break;
+  case 'addJ':
+   if(!num($('jH').value)&&!$('jN').value.trim()){toast('Indique les heures ou une note');break;}
+   suivi(cur).journal.push({id:uid(),date:$('jD').value||today(),personnes:$('jP').value||'1',heures:$('jH').value,note:$('jN').value,photos:[]});
+   if(cur.statut==='signé')cur.statut='en cours';
+   touch();save();render(true);toast('Journée ajoutée, tu peux y joindre des photos');break;
+  case 'delJ':if(confirm('Supprimer cette journée et ses photos ?')){var jd=cur.suivi.journal.splice(i,1)[0];(jd.photos||[]).forEach(idbDel);touch();save();render(true);}break;
+  case 'addDep':
+   if(!num($('dM').value)){toast('Indique un montant');break;}
+   suivi(cur).depenses.push({id:uid(),date:$('dD').value||today(),des:$('dT').value.trim(),montant:$('dM').value,qui:$('dQ').value});
+   touch();save();render(true);toast('Dépense ajoutée');break;
+  case 'delDep':if(confirm('Supprimer cette dépense ?')){cur.suivi.depenses.splice(i,1);touch();save();render(true);}break;
+  case 'chAll':chF.all=!chF.all;render(true);break;
   case 'syncNow':sync(true);break;
   case 'syncSave':
    var su=$('syU').value.trim(),sk=$('syK').value.trim();
