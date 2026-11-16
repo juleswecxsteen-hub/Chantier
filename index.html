@@ -448,7 +448,7 @@ function viewPoste(p,i,n){
   h+='<div class="l-x"><button class="btn sec icon" data-a="toCat" data-i="'+i+'" data-j="'+j+'" title="Enregistrer au catalogue">☆</button><button class="btn sec icon" data-a="delL" data-i="'+i+'" data-j="'+j+'" title="Supprimer la ligne">✕</button></div></div>';
  });
  h+='<label>Note du poste (en italique sur le devis)</label>'+inp(b+'.note',p.note,'ex : Livraison directe par toupie, sans pompe');
- h+='<div class="pfoot"><div><button class="btn small" data-a="addL" data-i="'+i+'">+ Ligne</button>';
+ h+='<div class="pfoot"><div><button class="btn small" data-a="addL" data-i="'+i+'">+ Ligne</button><button class="btn small dark" data-a="pasteL" data-i="'+i+'">📋 Coller des lignes</button>';
  if(i>0)h+='<button class="btn small sec" data-a="upP" data-i="'+i+'">↑</button>';
  if(i<n-1)h+='<button class="btn small sec" data-a="downP" data-i="'+i+'">↓</button>';
  h+='<button class="btn small sec" data-a="delP" data-i="'+i+'">Supprimer le poste</button></div>';
@@ -480,7 +480,7 @@ function viewDevis(d){
 
  d.postes.forEach(function(p,i){h+=viewPoste(p,i,d.postes.length);});
 
- h+='<div class="card"><h2>Ajouter</h2><button class="btn" data-a="addP" data-type="client">+ Poste fournisseur (payé client)</button><button class="btn" data-a="addP" data-type="facture">+ Poste facturé</button><button class="btn dark" data-a="addMO">+ Main d’œuvre et déplacement</button><button class="btn sec" data-a="calc">Calcul d’ouvrage</button></div>';
+ h+='<div class="card"><h2>Ajouter</h2><button class="btn dark" data-a="pasteNew">📋 Coller un devis fournisseur</button><button class="btn" data-a="addP" data-type="client">+ Poste fournisseur (payé client)</button><button class="btn" data-a="addP" data-type="facture">+ Poste facturé</button><button class="btn dark" data-a="addMO">+ Main d’œuvre et déplacement</button><button class="btn sec" data-a="calc">Calcul d’ouvrage</button></div>';
 
  h+='<div class="card recap"><h2>Récapitulatif</h2><div><span>Fournitures payées par le client (info)</span><b data-t="tc">'+eur(t.client)+'</b></div><div><span>Prestation facturée</span><b data-t="tf">'+eur(t.facture)+'</b></div><div class="big"><span>Budget global HT</span><span data-t="tg">'+eur(t.global)+'</span></div></div>';
 
@@ -1514,6 +1514,73 @@ function incidentCard(c){
  return h;
 }
 
+/* ---------- coller des lignes ---------- */
+function pnum(v){var t0=String(v==null?'':v).trim();if(!/^-?[\d\s\u00a0\u202f.,]+\s*(€|eur|euros?|ht)?$/i.test(t0))return null;var s=t0.replace(/[€\s  ]/g,'').replace(/[^\d,.\-]/g,'');if(!s)return null;if(s.indexOf(',')>=0)s=s.replace(/\./g,'').replace(',','.');var n=parseFloat(s);return isFinite(n)?n:null;}
+function pdate(v){var m=String(v||'').match(/(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})/);if(!m)return '';var y=m[3].length===2?'20'+m[3]:m[3];return y+'-'+pad(+m[2])+'-'+pad(+m[1]);}
+function parseLignes(txt){
+ var res={lignes:[],fournisseur:'',devisNum:'',devisDate:'',note:'',ignorees:0};
+ String(txt||'').split(/\r?\n/).forEach(function(raw){
+  var line=raw.trim();if(!line)return;
+  if(/^\|?\s*:?-{3,}/.test(line))return;
+  var cols;
+  if(line.indexOf('\t')>=0)cols=line.split('\t');
+  else if(line.indexOf('|')>=0)cols=line.split('|');
+  else if(line.indexOf(';')>=0)cols=line.split(';');
+  else cols=[line];
+  cols=cols.map(function(c){return c.trim();});
+  while(cols.length&&cols[0]==='')cols.shift();
+  while(cols.length&&cols[cols.length-1]==='')cols.pop();
+  if(!cols.length)return;
+  var k=cols[0].toLowerCase().replace(/\s*:\s*$/,'');
+  var rest=cols.length>1?cols.slice(1).join(' ').trim():(cols[0].split(':').slice(1).join(':').trim());
+  if(/^fournisseur\b/.test(k)){res.fournisseur=(cols.length>1?rest:cols[0].replace(/^fournisseur\s*:?/i,'')).trim();return;}
+  if(/^(n°\s*)?(de\s*)?devis\b|^n°\b/.test(k)){res.devisNum=(cols.length>1?rest:cols[0].replace(/^[^:]*:/,'')).trim().replace(/^n°\s*/i,'');return;}
+  if(/^date\b/.test(k)){res.devisDate=pdate(cols.length>1?rest:cols[0]);return;}
+  if(/^note\b/.test(k)){res.note=(cols.length>1?rest:cols[0].replace(/^note\s*:?/i,'')).trim();return;}
+  if(/^(sous.?total|total|tva|net à payer|montant)\b/.test(k))return;
+  if(cols.length<2){res.ignorees++;return;}
+  var des=cols[0],q=null,u='',pu=null,nums=[];
+  for(var i=1;i<cols.length;i++){var n=pnum(cols[i]);nums.push({n:n,t:cols[i]});}
+  if(nums.length>=3&&nums[0].n!==null&&nums[1].n===null){q=nums[0].n;u=nums[1].t;pu=nums[2].n;}
+  else if(nums.length>=2&&nums[0].n!==null&&nums[1].n===null){q=nums[0].n;u=nums[1].t;}
+  else if(nums.length>=2&&nums[0].n!==null&&nums[1].n!==null){q=nums[0].n;pu=nums[1].n;}
+  else if(nums.length>=1&&nums[0].n!==null){q=nums[0].n;}
+  if(/^(désignation|designation|libellé|article|produit)$/i.test(des))return;
+  if(q===null){res.ignorees++;return;}
+  var c=findCat(des);
+  res.lignes.push({des:des,qte:String(q).replace('.',','),unite:u||(c&&c.unite)||'u',pu:pu!==null?String(Math.round(pu*100)/100).replace('.',','):(c?String(c.pu||''):'')});
+ });
+ return res;
+}
+function openPaste(i){
+ var p=cur.postes[i];
+ showModal('<h2>Coller des lignes dans le poste '+(i+1)+'</h2><p class="small muted">Une ligne par article : désignation ; quantité ; unité ; prix unitaire HT. Les séparateurs ; ou tabulation (copie depuis Excel) marchent tous les deux. Tu peux aussi coller directement ce que Claude te renvoie.</p>'+
+ '<textarea id="psT" style="min-height:180px;font-family:monospace;font-size:14px" placeholder="Fournisseur ; BGC&#10;Devis n° ; 0087&#10;Date ; 05/11/2026&#10;Béton C25/30 ; 5 ; m³ ; 143,01&#10;Transport toupie ; 1 ; forfait ; 207"></textarea>'+
+ (p.lignes.some(function(l){return String(l.des).trim();})?'<label class="chk"><input type="checkbox" id="psR">Remplacer les lignes déjà présentes</label>':'')+
+ '<div id="psP" class="calcres"></div><button class="btn" data-a="pasteOk" data-i="'+i+'">Ajouter les lignes</button><button class="btn sec" data-a="close">Annuler</button>');
+ function prev(){
+  var r=parseLignes($('psT').value),h='';
+  if(r.fournisseur||r.devisNum||r.devisDate)h+='<div><span>Fournisseur, devis, date</span><b>'+esc([r.fournisseur,r.devisNum,frDate(r.devisDate)].filter(function(x){return x;}).join(', '))+'</b></div>';
+  var t=0;r.lignes.forEach(function(l){var lt=num(l.qte)*num(l.pu);t+=lt;h+='<div><span>'+esc(l.des)+' <span class="muted small">'+esc(l.qte)+' '+esc(l.unite)+' × '+eur(l.pu)+'</span></span><b>'+eur(lt)+'</b></div>';});
+  if(r.lignes.length)h+='<div><span><b>'+r.lignes.length+' ligne'+(r.lignes.length>1?'s':'')+'</b></span><b>'+eur(t)+'</b></div>';
+  if(r.ignorees)h+='<p class="small bad">'+r.ignorees+' ligne'+(r.ignorees>1?'s':'')+' non comprise'+(r.ignorees>1?'s':'')+' (il manque la quantité)</p>';
+  $('psP').innerHTML=h||'<p class="small muted">L’aperçu s’affiche ici.</p>';
+ }
+ $('psT').addEventListener('input',prev);prev();
+}
+function pasteOk(i){
+ var p=cur.postes[i],r=parseLignes($('psT').value);
+ if(!r.lignes.length){toast('Aucune ligne reconnue');return;}
+ var rep=$('psR')&&$('psR').checked;
+ p.lignes=(rep?[]:p.lignes.filter(function(l){return String(l.des).trim()||num(l.qte)||num(l.pu);})).concat(r.lignes.map(function(l){return newLigne(l.des,l.qte,l.unite,l.pu);}));
+ if(r.fournisseur&&!p.fournisseur)p.fournisseur=r.fournisseur;
+ if(r.devisNum&&!p.devisNum)p.devisNum=r.devisNum;
+ if(r.devisDate&&!p.devisDate)p.devisDate=r.devisDate;
+ if(r.note&&!p.note)p.note=r.note;
+ if(r.fournisseur&&(!p.titre||p.titre==='Fournitures'))p.titre='Fournitures '+r.fournisseur;
+ touch();save();closeModal();render(true);toast(r.lignes.length+' ligne'+(r.lignes.length>1?'s':'')+' ajoutée'+(r.lignes.length>1?'s':''));
+}
+
 /* ---------- rendu et routage ---------- */
 function render(keep){
  flush();
@@ -1880,6 +1947,11 @@ document.addEventListener('click',function(e){
    incidents(curC).push({id:uid(),date:$('inD').value||today(),type:$('inT').value,note:$('inN').value.trim(),montant:$('inM').value});
    curC.modifieLe=Date.now();save();render(true);toast('Incident noté');break;
   case 'incDel':if(confirm('Supprimer cet incident ?')){curC.incidents.splice(i,1);curC.modifieLe=Date.now();save();render(true);}break;
+  case 'pasteL':openPaste(i);break;
+  case 'pasteOk':pasteOk(i);break;
+  case 'pasteNew':
+   var pn=newPoste('client','Fournitures');if(cur.dateChantier)pn.dateCommande=addDays(cur.dateChantier,-num(s.delaiCommande));
+   cur.postes.push(pn);touch();save();render(true);openPaste(cur.postes.length-1);break;
   case 'chAll':chF.all=!chF.all;render(true);break;
   case 'syncNow':sync(true);break;
   case 'syncSave':
