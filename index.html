@@ -250,7 +250,7 @@ function $(id){return document.getElementById(id);}
 function toast(msg){var t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);},2200);}
 
 /* ---------- données ---------- */
-function defState(){return {version:1,settings:{noms:'',adresse1:'',adresse2:'',tel:'',tel2:'',mail:'',mail2:'',iban:'',bic:'',taux:'20',deplacement:'80',delaiCommande:'3',limites:'',prixKm:'0.6',acomptePct:'50',meteoVille:'Willerval',cgl:'',siret:'',condLoc:'Le matériel est remis en bon état de marche et doit être rendu propre, à la date prévue. Toute casse, perte ou usure anormale est à la charge du locataire. La caution est restituée au retour après contrôle.'},catalogue:[],devis:[],seq:{},events:[],machines:[],locations:[],deleted:{},settingsModif:0,clients:[]};}
+function defState(){return {version:1,settings:{noms:'',adresse1:'',adresse2:'',tel:'',tel2:'',mail:'',mail2:'',iban:'',bic:'',taux:'20',deplacement:'80',delaiCommande:'3',limites:'',prixKm:'0.6',acomptePct:'50',meteoVille:'Willerval',hDebut:'08:00',hFin:'17:00',pauseMin:'60',cgl:'',siret:'',condLoc:'Le matériel est remis en bon état de marche et doit être rendu propre, à la date prévue. Toute casse, perte ou usure anormale est à la charge du locataire. La caution est restituée au retour après contrôle.'},catalogue:[],devis:[],seq:{},events:[],machines:[],locations:[],deleted:{},settingsModif:0,clients:[]};}
 function load(){
  try{var s=localStorage.getItem(KEY);state=s?JSON.parse(s):defState();}catch(e){state=defState();}
  var d=defState();
@@ -639,6 +639,7 @@ function viewReglages(){
  h+='<label>SIRET (quand tu en auras un)</label>'+inp('s.siret',s.siret);
  h+='<div class="grid"><div class="w2"><label>IBAN (pied de devis)</label>'+inp('s.iban',s.iban)+'</div><div><label>BIC</label>'+inp('s.bic',s.bic)+'</div></div></div>';
  h+='<div class="card"><h2>Valeurs par défaut</h2><div class="grid"><div><label>Taux horaire main d’œuvre (€ HT)</label>'+numInp('s.taux',s.taux)+'</div><div><label>Forfait déplacement (€ HT)</label>'+numInp('s.deplacement',s.deplacement)+'</div><div><label>Commander les matériaux (jours avant chantier)</label>'+numInp('s.delaiCommande',s.delaiCommande)+'</div></div>';
+ h+='<div class="grid"><div><label>Heure de début habituelle</label><input type="time" data-b="s.hDebut" value="'+esc(s.hDebut||'08:00')+'"></div><div><label>Heure de fin habituelle</label><input type="time" data-b="s.hFin" value="'+esc(s.hFin||'17:00')+'"></div><div><label>Pause midi (minutes)</label>'+numInp('s.pauseMin',s.pauseMin||'60')+'</div></div>';
  h+='<label>Ville pour la météo (quand le lieu du chantier n’est pas renseigné)</label>'+inp('s.meteoVille',s.meteoVille,'ex : Willerval');
  h+='<label>Limites de prestation par défaut</label><textarea data-b="s.limites">'+esc(s.limites)+'</textarea></div>';
  h+='<div class="card"><h2>Locations</h2><div class="grid"><div><label>Prix du transport (€ HT par km)</label>'+numInp('s.prixKm',s.prixKm)+'</div><div><label>Acompte à la prise du matériel (%)</label>'+numInp('s.acomptePct',s.acomptePct)+'</div></div><label>Conditions générales du contrat de location</label><textarea data-b="s.cgl" style="min-height:220px">'+esc(s.cgl||CGL_DEFAUT)+'</textarea><button class="btn sec small" data-a="cglReset" style="margin-top:6px">Remettre le texte par défaut</button><p class="small muted">Modèle de base à faire relire par un professionnel avant de louer à des entreprises.</p><label>Conditions courtes (sur l’état des lieux)</label><textarea data-b="s.condLoc">'+esc(s.condLoc)+'</textarea></div>';
@@ -1069,6 +1070,13 @@ var GS_CODE="// Synchro de l'appli Chantiers\n// 1. Remplace CHANGE-MOI par un m
 
 /* ---------- suivi de chantier ---------- */
 var chF={all:false};
+function tmin(t){var m=String(t||'').match(/(\d{1,2})\D?(\d{2})?/);return m?(+m[1])*60+(+(m[2]||0)):null;}
+function jHeures(j){
+ if(j.debut&&j.fin){var a=tmin(j.debut),b=tmin(j.fin);if(a===null||b===null)return 0;if(b<a)b+=1440;return Math.max(0,b-a-(j.pause?num(j.pauseMin||60):0))/60;}
+ return num(j.heures);
+}
+function hFmt(h){var m=Math.round(h*60);return Math.floor(m/60)+' h'+(m%60?' '+pad(m%60):'');}
+function horaires(j){return j.debut&&j.fin?String(j.debut).replace(':','h')+' à '+String(j.fin).replace(':','h')+(j.pause?', pause '+fq(num(j.pauseMin||60))+' min':''):'';}
 function finDefaut(d){var t=today(),last='';(d.suivi&&d.suivi.journal||[]).forEach(function(j){if(j.date>last)last=j.date;});if(last&&last<=t)return last;if(d.dateChantier&&d.dateChantier<t)return d.dateChantier;return t;}
 function suivi(d){if(!d.suivi)d.suivi={avancement:'0',journal:[],depenses:[]};return d.suivi;}
 function isHeure(u){u=String(u||'').trim().toLowerCase();return u==='h'||u.indexOf('heure')===0;}
@@ -1076,7 +1084,7 @@ function bilan(d){
  var s=suivi(d),t=totaux(d),hp=0,moP=0,hr=0,dn=0,dc=0,taux=0;
  d.postes.forEach(function(p){if(p.type==='client')return;p.lignes.forEach(function(l){if(isHeure(l.unite)){hp+=num(l.qte);moP+=ligneTot(l);if(!taux)taux=num(l.pu);}});});
  if(!taux)taux=num(state.settings.taux);
- s.journal.forEach(function(j){hr+=num(j.personnes||1)*num(j.heures);});
+ s.journal.forEach(function(j){hr+=num(j.personnes||1)*jHeures(j);});
  s.depenses.forEach(function(x){if(x.qui==='client')dc+=num(x.montant);else dn+=num(x.montant);});
  var moR=hr*taux;
  return {fact:t.facture,client:t.client,hp:hp,hr:hr,dn:dn,dc:dc,taux:taux,moP:moP,moR:moR,aFact:t.facture-moP+moR,envoye:!!s.heuresEnvoyees,av:Math.max(0,Math.min(100,num(s.avancement)))};
@@ -1105,13 +1113,17 @@ function viewSuivi(d){
  h+='<div class="grid"><div><label>Statut</label><select data-b="d.statut" data-re="1">'+STATUTS.map(function(x){return '<option'+sel(d.statut,x)+'>'+x+'</option>';}).join('')+'</select></div><div><label>Date de fin du chantier</label><input type="date" data-b="d.suivi.termineLe" data-re="1" value="'+esc(s.termineLe||'')+'"></div></div>';
  h+='<p class="small muted">Chantier déjà fini ? Mets le statut et la date de fin, ajoute les journées avec leur vraie date, et coche "Heures réelles envoyées" s’il n’y a plus rien à faire.</p></div>';
  h+=bilanCard(d);
- h+='<div class="card"><h2>Journal</h2><div class="grid"><div><label>Date</label><input type="date" id="jD" value="'+today()+'"></div><div><label>Personnes</label><input id="jP" inputmode="decimal" value="2"></div><div><label>Heures chacun</label><input id="jH" inputmode="decimal" placeholder="ex : 8"></div></div>';
+ h+='<div class="card"><h2>Journal</h2><div class="grid"><div><label>Date</label><input type="date" id="jD" value="'+today()+'"></div><div><label>Personnes</label><input id="jP" inputmode="decimal" value="2"></div></div>';
+ h+='<div class="grid" id="jF"><div><label>Début</label><input type="time" id="jDeb" value="'+esc(state.settings.hDebut||'08:00')+'"></div><div><label>Fin</label><input type="time" id="jFin" value="'+esc(state.settings.hFin||'17:00')+'"></div><div><label class="chk"><input type="checkbox" id="jPau" checked>Pause midi ('+fq(num(state.settings.pauseMin||60))+' min)</label></div></div><p class="small" id="jTot" style="margin:6px 0 0"></p>';
  h+='<label>Ce qui a été fait, problèmes, à prévoir</label><textarea id="jN" placeholder="ex : coffrage et ferraillage terminés, coulage demain 9h30"></textarea><button class="btn" data-a="addJ" style="margin-top:8px">+ Ajouter la journée</button></div>';
  var js=s.journal.map(function(j,i){return {j:j,i:i};}).sort(function(a,b){return a.j.date<b.j.date?1:a.j.date>b.j.date?-1:b.i-a.i;});
  js.forEach(function(x){
   var j=x.j,i=x.i,bb='d.suivi.journal.'+i+'.';
   h+='<div class="card"><div class="plan-head"><h2 style="margin:0;text-transform:capitalize">'+longDate(j.date)+'</h2><button class="btn sec icon" data-a="delJ" data-i="'+i+'">✕</button></div>';
-  h+='<div class="grid"><div><label>Date</label><input type="date" data-b="'+bb+'date" value="'+esc(j.date)+'"></div><div><label>Personnes</label>'+numInp(bb+'personnes',j.personnes)+'</div><div><label>Heures chacun</label>'+numInp(bb+'heures',j.heures)+'</div></div>';
+  h+='<div class="grid"><div><label>Date</label><input type="date" data-b="'+bb+'date" value="'+esc(j.date)+'"></div><div><label>Personnes</label>'+numInp(bb+'personnes',j.personnes)+'</div></div>';
+  if(j.debut||!num(j.heures))h+='<div class="grid"><div><label>Début</label><input type="time" data-b="'+bb+'debut" data-re="1" value="'+esc(j.debut||'')+'"></div><div><label>Fin</label><input type="time" data-b="'+bb+'fin" data-re="1" value="'+esc(j.fin||'')+'"></div><div><label class="chk"><input type="checkbox" data-b="'+bb+'pause" data-re="1"'+(j.pause?' checked':'')+'>Pause midi ('+fq(num(j.pauseMin||60))+' min)</label></div></div>';
+  else h+='<div class="grid"><div><label>Heures chacun</label>'+numInp(bb+'heures',j.heures)+'</div></div>';
+  var jh=jHeures(j);h+='<p class="small" style="margin:6px 0 0"><b>'+hFmt(jh)+'</b> chacun'+(num(j.personnes||1)>1?', soit <b>'+hFmt(jh*num(j.personnes||1))+'</b> pour '+fq(j.personnes)+' personnes':'')+'</p>';
   h+='<label>Notes</label><textarea data-b="'+bb+'note">'+esc(j.note)+'</textarea>';
   h+='<label>Photos ('+j.photos.length+')</label><div class="phgrid">'+j.photos.map(function(p,k){return thumb(p,'j:'+j.id,k);}).join('')+'</div><input type="file" accept="image/*" multiple data-ph-add="j:'+j.id+'"></div>';
  });
@@ -1145,7 +1157,7 @@ function viewRapport(d){
  h+='<div class="dinfo">'+(d.reference?'<p>Chantier : <b>'+esc(d.reference)+'</b></p>':'')+(d.lieu?'<p>Lieu : <b>'+esc(d.lieu)+'</b></p>':'')+'<p>Avancement : <b>'+b.av+' %</b></p>'+(d.description?'<p style="white-space:pre-wrap">'+esc(d.description)+'</p>':'')+'</div>';
  if(!js.length)h+='<div class="dbox">Aucune journée enregistrée pour le moment.</div>';
  js.forEach(function(j){
-  h+='<div class="dbox" style="white-space:normal;page-break-inside:avoid"><b style="text-transform:capitalize">'+longDate(j.date)+'</b>'+(num(j.heures)?' <span class="small">('+fq(j.personnes||1)+' pers., '+fq(j.heures)+' h)</span>':'')+(j.note?'<div style="white-space:pre-wrap;margin-top:4px">'+esc(j.note)+'</div>':'');
+  h+='<div class="dbox" style="white-space:normal;page-break-inside:avoid"><b style="text-transform:capitalize">'+longDate(j.date)+'</b>'+(jHeures(j)?' <span class="small">('+fq(j.personnes||1)+' pers., '+(horaires(j)?horaires(j)+', ':'')+hFmt(jHeures(j))+' chacun)</span>':'')+(j.note?'<div style="white-space:pre-wrap;margin-top:4px">'+esc(j.note)+'</div>':'');
   if(j.photos.length)h+='<div class="edlph" style="margin-top:6px">'+j.photos.map(function(p){return '<img data-ph="'+p+'" alt="">';}).join('')+'</div>';
   h+='</div>';
  });
@@ -1592,7 +1604,7 @@ function render(keep){
  else if(h==='planning'){cur=null;app.innerHTML=viewPlanning();if(pendingEv){var pe=pendingEv;pendingEv=null;openEv(pe);}}
  else if(h==='devislist'){cur=null;app.innerHTML=viewDevisList();$('dvQ').addEventListener('input',function(){dvF.q=this.value;$('dvList').innerHTML=devisListHtml();});}
  else if(h==='chantiers'){cur=null;app.innerHTML=viewChantiers();}
- else if(h.indexOf('suivi-')===0){cur=getDevis(h.slice(6));if(!cur){location.hash='#chantiers';return;}app.innerHTML=viewSuivi(cur);}
+ else if(h.indexOf('suivi-')===0){cur=getDevis(h.slice(6));if(!cur){location.hash='#chantiers';return;}app.innerHTML=viewSuivi(cur);var jt=function(){var o={debut:$('jDeb').value,fin:$('jFin').value,pause:$('jPau').checked,pauseMin:state.settings.pauseMin||60},hh=jHeures(o),np=num($('jP').value||1);$('jTot').innerHTML='<b>'+hFmt(hh)+'</b> chacun'+(np>1?', soit <b>'+hFmt(hh*np)+'</b> pour '+fq(np)+' personnes':'');};['jDeb','jFin','jPau','jP'].forEach(function(x){$(x).addEventListener('input',jt);$(x).addEventListener('change',jt);});jt();}
  else if(h.indexOf('rapport-')===0){cur=getDevis(h.slice(8));if(!cur){location.hash='#chantiers';return;}app.innerHTML=viewRapport(cur);}
  else if(h==='clients'){cur=null;app.innerHTML=viewClients();$('clQ').addEventListener('input',function(){clF.q=this.value;$('clList').innerHTML=clientListHtml();});}
  else if(h.indexOf('client-')===0){cur=null;curC=getClient(h.slice(7));if(!curC){location.hash='#clients';return;}app.innerHTML=viewClient(curC);}
@@ -1903,8 +1915,9 @@ document.addEventListener('click',function(e){
    var q=quickObj(),ql=newLoc(q.machineId);ql.fin=q.fin;ql.forfait=q.forfait;ql.nettoyage=q.nettoyage;ql.km=q.km;save();closeModal();location.hash='#location-'+ql.id;break;
   case 'dvSt':dvF.st=el.getAttribute('data-s');render(true);break;
   case 'addJ':
-   if(!num($('jH').value)&&!$('jN').value.trim()){toast('Indique les heures ou une note');break;}
-   suivi(cur).journal.push({id:uid(),date:$('jD').value||today(),personnes:$('jP').value||'1',heures:$('jH').value,note:$('jN').value,photos:[]});
+   var nj={id:uid(),date:$('jD').value||today(),personnes:$('jP').value||'1',debut:$('jDeb').value,fin:$('jFin').value,pause:$('jPau').checked,pauseMin:String(num(state.settings.pauseMin||60)),heures:'',note:$('jN').value,photos:[]};
+   if(!jHeures(nj)&&!nj.note.trim()){toast('Indique les horaires ou une note');break;}
+   suivi(cur).journal.push(nj);
    if(cur.statut==='signé')cur.statut='en cours';
    touch();save();render(true);toast('Journée ajoutée, tu peux y joindre des photos');break;
   case 'delJ':if(confirm('Supprimer cette journée et ses photos ?')){var jd=cur.suivi.journal.splice(i,1)[0];(jd.photos||[]).forEach(idbDel);touch();save();render(true);}break;
