@@ -243,13 +243,14 @@ function daysBetween(a,b){return Math.round((parseISO(b)-parseISO(a))/86400000);
 function frDate(s){if(!s)return '';var p=s.split('-');return p[2]+'/'+p[1]+'/'+p[0];}
 function longDate(s){var d=parseISO(s);if(!d)return '';return ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'][d.getDay()]+' '+d.getDate()+' '+['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'][d.getMonth()]+' '+d.getFullYear();}
 function stamp(ts){if(!ts)return '';var d=new Date(ts);return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear()+' à '+pad(d.getHours())+'h'+pad(d.getMinutes());}
+function telsTxt(s,sep){var t=[s.tel,s.tel2].filter(function(x){return String(x||'').trim();});return t.length?t.map(function(x){return 'Tél : '+esc(x);}).join(sep)+sep:'';}
 function mailsTxt(s,sep){return [s.mail,s.mail2].filter(function(x){return String(x||'').trim();}).map(function(x){return 'Mail : '+esc(x);}).join(sep);}
 function sel(a,b){return a===b?' selected':'';}
 function $(id){return document.getElementById(id);}
 function toast(msg){var t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);},2200);}
 
 /* ---------- données ---------- */
-function defState(){return {version:1,settings:{noms:'',adresse1:'',adresse2:'',tel:'',mail:'',mail2:'',iban:'',bic:'',taux:'20',deplacement:'80',delaiCommande:'3',limites:'',prixKm:'0.6',acomptePct:'50',meteoVille:'Willerval',cgl:'',siret:'',condLoc:'Le matériel est remis en bon état de marche et doit être rendu propre, à la date prévue. Toute casse, perte ou usure anormale est à la charge du locataire. La caution est restituée au retour après contrôle.'},catalogue:[],devis:[],seq:{},events:[],machines:[],locations:[],deleted:{},settingsModif:0,clients:[]};}
+function defState(){return {version:1,settings:{noms:'',adresse1:'',adresse2:'',tel:'',tel2:'',mail:'',mail2:'',iban:'',bic:'',taux:'20',deplacement:'80',delaiCommande:'3',limites:'',prixKm:'0.6',acomptePct:'50',meteoVille:'Willerval',cgl:'',siret:'',condLoc:'Le matériel est remis en bon état de marche et doit être rendu propre, à la date prévue. Toute casse, perte ou usure anormale est à la charge du locataire. La caution est restituée au retour après contrôle.'},catalogue:[],devis:[],seq:{},events:[],machines:[],locations:[],deleted:{},settingsModif:0,clients:[]};}
 function load(){
  try{var s=localStorage.getItem(KEY);state=s?JSON.parse(s):defState();}catch(e){state=defState();}
  var d=defState();
@@ -496,7 +497,7 @@ function viewApercu(d){
  h+='<div class="card no-print"><a class="btn sec" href="#devis-'+d.id+'">← Modifier</a><button class="btn" data-a="print">Imprimer / PDF</button>';
  h+='<p class="small muted">Sur iPad ou iPhone : Imprimer, puis écarte deux doigts sur l’aperçu de la page pour l’ouvrir en PDF, et partage le (mail, Fichiers…).</p></div>';
  h+='<div class="docwrap"><div class="doc">';
- h+='<table class="dh"><tr><td><b>'+esc(s.noms||'Vos noms (Réglages)')+'</b><br>'+(s.tel?'Tél : '+esc(s.tel)+'<br>':'')+mailsTxt(s,'<br>')+'</td><td>'+esc(s.adresse1)+'<br>'+esc(s.adresse2)+'</td>';
+ h+='<table class="dh"><tr><td><b>'+esc(s.noms||'Vos noms (Réglages)')+'</b><br>'+telsTxt(s,'<br>')+mailsTxt(s,'<br>')+'</td><td>'+esc(s.adresse1)+'<br>'+esc(s.adresse2)+'</td>';
  h+='<td class="dh-r"><b>'+esc(d.client.nom)+'</b><br>'+esc(d.client.adresse)+'<br>'+esc(d.client.ville)+(d.client.tel?'<br>'+esc(d.client.tel):'')+'</td></tr></table>';
  h+='<div class="dbar"><span>DEVIS</span><span>'+esc(d.numero)+'</span><span>IND '+esc(d.indice)+'</span><span>'+frDate(d.date)+'</span></div>';
  h+='<div class="dinfo">'+(d.lieu?'<p>Lieu du chantier : <b>'+esc(d.lieu)+'</b></p>':'')+'<p>Référence : <b>'+esc(d.numero)+(d.reference?', '+esc(d.reference):'')+'</b></p>';
@@ -633,7 +634,8 @@ function viewReglages(){
  var h='<div class="card"><h1>Réglages</h1><h2>Prestataire (en tête du devis)</h2>';
  h+='<label>Noms</label>'+inp('s.noms',s.noms,'ex : DUCROQUET Maxime, WECXSTEEN Jules');
  h+='<div class="grid"><div><label>Adresse</label>'+inp('s.adresse1',s.adresse1)+'</div><div><label>CP et ville</label>'+inp('s.adresse2',s.adresse2)+'</div></div>';
- h+='<div class="grid"><div><label>Téléphone</label>'+inp('s.tel',s.tel)+'</div><div><label>Mail 1</label>'+inp('s.mail',s.mail,'',' type="email"')+'</div><div><label>Mail 2</label>'+inp('s.mail2',s.mail2,'',' type="email"')+'</div></div>';
+ h+='<div class="grid"><div><label>Téléphone 1</label>'+inp('s.tel',s.tel,'',' type="tel"')+'</div><div><label>Téléphone 2</label>'+inp('s.tel2',s.tel2,'',' type="tel"')+'</div></div>';
+ h+='<div class="grid"><div><label>Mail 1</label>'+inp('s.mail',s.mail,'',' type="email"')+'</div><div><label>Mail 2</label>'+inp('s.mail2',s.mail2,'',' type="email"')+'</div></div>';
  h+='<label>SIRET (quand tu en auras un)</label>'+inp('s.siret',s.siret);
  h+='<div class="grid"><div class="w2"><label>IBAN (pied de devis)</label>'+inp('s.iban',s.iban)+'</div><div><label>BIC</label>'+inp('s.bic',s.bic)+'</div></div></div>';
  h+='<div class="card"><h2>Valeurs par défaut</h2><div class="grid"><div><label>Taux horaire main d’œuvre (€ HT)</label>'+numInp('s.taux',s.taux)+'</div><div><label>Forfait déplacement (€ HT)</label>'+numInp('s.deplacement',s.deplacement)+'</div><div><label>Commander les matériaux (jours avant chantier)</label>'+numInp('s.delaiCommande',s.delaiCommande)+'</div></div>';
@@ -875,7 +877,7 @@ function viewEdl(L){
  function imgs(list){return list.map(function(p){return '<img data-ph="'+p+'" alt="">';}).join('');}
  h+='<div class="card no-print"><a class="btn sec" href="#location-'+L.id+'">← Modifier</a><button class="btn" data-a="print">Imprimer / PDF</button><p class="small muted">Attends que les photos soient affichées avant d’imprimer. Sur iPad : Imprimer, puis écarte deux doigts sur l’aperçu pour obtenir le PDF.</p></div>';
  h+='<div class="docwrap"><div class="doc">';
- h+='<table class="dh"><tr><td><b>'+esc(s.noms||'Vos noms (Réglages)')+'</b><br>'+(s.tel?'Tél : '+esc(s.tel)+'<br>':'')+mailsTxt(s,'<br>')+'</td><td>'+esc(s.adresse1)+'<br>'+esc(s.adresse2)+'</td><td class="dh-r"><b>'+esc(L.client.nom)+'</b><br>'+esc(L.client.adresse)+(L.client.tel?'<br>'+esc(L.client.tel):'')+'</td></tr></table>';
+ h+='<table class="dh"><tr><td><b>'+esc(s.noms||'Vos noms (Réglages)')+'</b><br>'+telsTxt(s,'<br>')+mailsTxt(s,'<br>')+'</td><td>'+esc(s.adresse1)+'<br>'+esc(s.adresse2)+'</td><td class="dh-r"><b>'+esc(L.client.nom)+'</b><br>'+esc(L.client.adresse)+(L.client.tel?'<br>'+esc(L.client.tel):'')+'</td></tr></table>';
  h+='<div class="dbar"><span>LOCATION ET ÉTAT DES LIEUX</span><span>'+esc(L.numero)+'</span></div>';
  h+='<div class="dinfo"><p>Matériel : <b>'+esc(m.nom)+'</b>'+([m.marque,m.modele].filter(function(x){return x;}).length?', '+esc([m.marque,m.modele].filter(function(x){return x;}).join(' ')):'')+(m.serie?', n° de série '+esc(m.serie):'')+'</p><p>Période : <b>'+periode(L)+'</b> ('+c.days+' jour'+(c.days>1?'s':'')+')</p>'+(num(L.caution)?'<p>Caution : <b>'+eur(L.caution)+'</b>'+(L.cautionRendue?' (rendue)':'')+'</p>':'')+'</div>';
  h+='<table class="dt"><thead><tr><th style="width:150px"></th><th>Départ</th><th>Retour</th></tr></thead><tbody>';
@@ -1067,6 +1069,7 @@ var GS_CODE="// Synchro de l'appli Chantiers\n// 1. Remplace CHANGE-MOI par un m
 
 /* ---------- suivi de chantier ---------- */
 var chF={all:false};
+function finDefaut(d){var t=today(),last='';(d.suivi&&d.suivi.journal||[]).forEach(function(j){if(j.date>last)last=j.date;});if(last&&last<=t)return last;if(d.dateChantier&&d.dateChantier<t)return d.dateChantier;return t;}
 function suivi(d){if(!d.suivi)d.suivi={avancement:'0',journal:[],depenses:[]};return d.suivi;}
 function isHeure(u){u=String(u||'').trim().toLowerCase();return u==='h'||u.indexOf('heure')===0;}
 function bilan(d){
@@ -1099,7 +1102,8 @@ function viewSuivi(d){
  h+='<div class="small muted">'+esc(d.numero)+(d.reference?', '+esc(d.reference):'')+(d.lieu?', '+esc(d.lieu):'')+'</div>';
  h+='<div style="margin-top:10px"><a class="btn dark" href="#rapport-'+d.id+'">Compte rendu client / PDF</a></div></div>';
  h+='<div class="card"><h2>Avancement : <span id="avLbl">'+b.av+' %</span></h2><input type="range" min="0" max="100" step="5" data-b="d.suivi.avancement" data-av="1" value="'+b.av+'" style="padding:0;border:0">';
- h+='<label>Statut</label><select data-b="d.statut" data-re="1">'+STATUTS.map(function(x){return '<option'+sel(d.statut,x)+'>'+x+'</option>';}).join('')+'</select></div>';
+ h+='<div class="grid"><div><label>Statut</label><select data-b="d.statut" data-re="1">'+STATUTS.map(function(x){return '<option'+sel(d.statut,x)+'>'+x+'</option>';}).join('')+'</select></div><div><label>Date de fin du chantier</label><input type="date" data-b="d.suivi.termineLe" data-re="1" value="'+esc(s.termineLe||'')+'"></div></div>';
+ h+='<p class="small muted">Chantier déjà fini ? Mets le statut et la date de fin, ajoute les journées avec leur vraie date, et coche "Heures réelles envoyées" s’il n’y a plus rien à faire.</p></div>';
  h+=bilanCard(d);
  h+='<div class="card"><h2>Journal</h2><div class="grid"><div><label>Date</label><input type="date" id="jD" value="'+today()+'"></div><div><label>Personnes</label><input id="jP" inputmode="decimal" value="2"></div><div><label>Heures chacun</label><input id="jH" inputmode="decimal" placeholder="ex : 8"></div></div>';
  h+='<label>Ce qui a été fait, problèmes, à prévoir</label><textarea id="jN" placeholder="ex : coffrage et ferraillage terminés, coulage demain 9h30"></textarea><button class="btn" data-a="addJ" style="margin-top:8px">+ Ajouter la journée</button></div>';
@@ -1136,7 +1140,7 @@ function viewRapport(d){
  var js=s.journal.slice().sort(function(a,c){return a.date<c.date?-1:1;});
  h+='<div class="card no-print"><a class="btn sec" href="#suivi-'+d.id+'">← Suivi</a><button class="btn" data-a="print">Imprimer / PDF</button><p class="small muted">Compte rendu sans les prix, à envoyer au client. Attends que les photos soient affichées avant d’imprimer.</p></div>';
  h+='<div class="docwrap"><div class="doc">';
- h+='<table class="dh"><tr><td><b>'+esc(st.noms||'Vos noms (Réglages)')+'</b><br>'+(st.tel?'Tél : '+esc(st.tel)+'<br>':'')+mailsTxt(st,'<br>')+'</td><td>'+esc(st.adresse1)+'<br>'+esc(st.adresse2)+'</td><td class="dh-r"><b>'+esc(d.client.nom)+'</b><br>'+esc(d.client.adresse)+'<br>'+esc(d.client.ville)+'</td></tr></table>';
+ h+='<table class="dh"><tr><td><b>'+esc(st.noms||'Vos noms (Réglages)')+'</b><br>'+telsTxt(st,'<br>')+mailsTxt(st,'<br>')+'</td><td>'+esc(st.adresse1)+'<br>'+esc(st.adresse2)+'</td><td class="dh-r"><b>'+esc(d.client.nom)+'</b><br>'+esc(d.client.adresse)+'<br>'+esc(d.client.ville)+'</td></tr></table>';
  h+='<div class="dbar"><span>COMPTE RENDU DE CHANTIER</span><span>'+esc(d.numero)+'</span><span>'+frDate(today())+'</span></div>';
  h+='<div class="dinfo">'+(d.reference?'<p>Chantier : <b>'+esc(d.reference)+'</b></p>':'')+(d.lieu?'<p>Lieu : <b>'+esc(d.lieu)+'</b></p>':'')+'<p>Avancement : <b>'+b.av+' %</b></p>'+(d.description?'<p style="white-space:pre-wrap">'+esc(d.description)+'</p>':'')+'</div>';
  if(!js.length)h+='<div class="dbox">Aucune journée enregistrée pour le moment.</div>';
@@ -1260,7 +1264,7 @@ function viewContrat(L){
  h+='<div class="card no-print"><a class="btn sec" href="#location-'+L.id+'">← Location</a><button class="btn" data-a="print">Imprimer / PDF</button><a class="btn sec" href="#edl-'+L.id+'">État des lieux</a><p class="small muted">Sur iPad : Imprimer, puis écarte deux doigts sur l’aperçu pour obtenir le PDF.</p></div>';
  h+='<div class="docwrap"><div class="doc">';
  h+='<div class="dbar" style="border-top:1px solid #333;font-size:14px"><span>CONTRAT DE LOCATION DE MATÉRIEL</span><span>'+esc(L.numero)+'</span></div>';
- h+='<table class="dh" style="margin-top:8px"><tr><td style="width:50%"><b>LE LOUEUR</b><br>'+esc(s.noms||'Vos noms (Réglages)')+'<br>'+esc(s.adresse1)+(s.adresse2?', '+esc(s.adresse2):'')+(s.tel?'<br>Tél : '+esc(s.tel):'')+(mailsTxt(s,'<br>')?'<br>'+mailsTxt(s,'<br>'):'')+(s.siret?'<br>SIRET : '+esc(s.siret):'')+'</td>';
+ h+='<table class="dh" style="margin-top:8px"><tr><td style="width:50%"><b>LE LOUEUR</b><br>'+esc(s.noms||'Vos noms (Réglages)')+'<br>'+esc(s.adresse1)+(s.adresse2?', '+esc(s.adresse2):'')+telsTxt(s,'<br>').replace(/<br>$/,'').replace(/^/,telsTxt(s,'')?'<br>':'')+(mailsTxt(s,'<br>')?'<br>'+mailsTxt(s,'<br>'):'')+(s.siret?'<br>SIRET : '+esc(s.siret):'')+'</td>';
  h+='<td><b>LE LOCATAIRE</b><br>'+esc(L.client.nom||'')+(L.client.adresse?'<br>'+esc(L.client.adresse):'')+(L.client.tel?'<br>Tél : '+esc(L.client.tel):'')+(c.piece?'<br>Pièce d’identité : '+esc(c.piece):'')+(c.assurance?'<br>Assurance : '+esc(c.assurance):'')+'</td></tr></table>';
  h+='<div class="dinfo"><p><b>Matériel :</b> '+esc(m.nom)+(mm?', '+esc(mm):'')+(m.serie?', n° de série '+esc(m.serie):'')+'</p>'+(c.accessoires?'<p><b>Accessoires :</b> '+esc(c.accessoires)+'</p>':'');
  h+='<p><b>Période :</b> '+periode(L)+' ('+k.days+' jour'+(k.days>1?'s':'')+')</p>'+(c.lieu?'<p><b>Lieu d’utilisation :</b> '+esc(c.lieu)+'</p>':'');
@@ -1567,7 +1571,7 @@ function setB(path,val){
   var lp=$('locprix');if(lp)lp.innerHTML=prixTable(locCalc(curL));
   var lpy=$('locpay');if(lpy)lpy.innerHTML=locPayHtml(locCalc(curL));
  }
- if(path==='d.statut'&&val==='terminé'&&cur&&!suivi(cur).termineLe)cur.suivi.termineLe=today();
+ if(path==='d.statut'&&(val==='terminé'||val==='payé')&&cur&&!suivi(cur).termineLe)cur.suivi.termineLe=finDefaut(cur);
  if(path.indexOf('d.suivi.')===0&&$('bilanBox')&&cur)$('bilanBox').outerHTML=bilanCard(cur);
  if(path==='d.suivi.avancement'&&$('avLbl'))$('avLbl').textContent=Math.round(num(val))+' %';
  updateTotals();saveSoon();
@@ -1594,7 +1598,7 @@ document.addEventListener('change',function(e){
  }
  if(el.getAttribute('data-av')&&cur){
   var av=num(el.value);
-  if(av>=100&&(cur.statut==='signé'||cur.statut==='en cours')){cur.statut='terminé';suivi(cur).termineLe=today();touch();save();render(true);toast('Chantier passé en terminé');return;}
+  if(av>=100&&(cur.statut==='signé'||cur.statut==='en cours')){cur.statut='terminé';suivi(cur).termineLe=finDefaut(cur);touch();save();render(true);toast('Chantier passé en terminé');return;}
   if(av>0&&cur.statut==='signé'){cur.statut='en cours';touch();save();render(true);toast('Chantier passé en cours');return;}
  }
  if(b==='L.soldeRecu'&&el.checked&&curL&&(curL.statut==='rendue'||curL.statut==='sortie')){curL.statut='payée';toast('Location passée en payée');}
