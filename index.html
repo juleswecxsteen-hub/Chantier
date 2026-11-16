@@ -1717,8 +1717,9 @@ function openSig(who){
 /* calculs d'ouvrage */
 var OUV={
  dalle:{t:'Dalle béton armé',f:[['L','Longueur (m)','4'],['W','Largeur (m)','4'],['E','Épaisseur (cm)','20'],['P','Marge de perte béton (%)','10'],['N','Nappes de treillis (1 ou 2)','2'],['R','Recouvrement treillis (cm)','20'],['PL','Panneau treillis longueur (m)','4'],['PW','Panneau treillis largeur (m)','2.4'],['H','Hauteur planche coffrage (cm)','20'],
-  ['_','Option : bêche (rebord renforcé sous la dalle)'],['BL','Longueur de bêche (m), 0 si aucune','0'],['BW','Largeur de la bêche (cm)','30'],['BH','Profondeur sous la dalle (cm)','30'],['BA','Longueur d’une armature de bêche (m)','6'],
-  ['_','Option : cubes ou massifs béton en plus'],['MN','Nombre de cubes / massifs','0'],['MA','Longueur (cm)','60'],['MB','Largeur (cm)','60'],['MH','Hauteur (cm)','60']],
+  ['_','Option : bêche (rebord renforcé sous la dalle)'],['BL','Longueur de bêche (m), 0 si aucune','0'],['BW','Largeur de la bêche (cm)','30'],['BH','Profondeur sous la dalle (cm)','30'],['BT','Armature de bêche : 1 cage toute faite, 2 fer rond','1'],['BA','Longueur d’une cage de bêche (m)','6'],['BF','Fer rond : nombre de filants','4'],['BE','Fer rond : espacement des cadres (cm)','20'],
+  ['_','Option : cubes ou massifs béton en plus'],['MN','Nombre de cubes / massifs','0'],['MA','Longueur (cm)','60'],['MB','Largeur (cm)','60'],['MH','Hauteur (cm)','60'],['MF','Armer les cubes en fer rond (1 oui, 0 non)','1'],['ME','Espacement des fers (cm)','20'],
+  ['_','Ferraillage en fer rond'],['FD','Diamètre du fer (mm)','8'],['FC','Enrobage (cm)','5'],['FX','Chutes et recouvrements (%)','10']],
   c:function(v){
    var L=v.L,W=v.W,E=v.E/100,R=v.R/100,PL=v.PL||4,PW=v.PW||2.4,H=(v.H||20)/100,N=v.N||1;
    function nb(len,pan){if(len<=0)return 0;if(len<=pan)return 1;if(pan-R<=0)return 0;return Math.ceil((len-R)/(pan-R)-1e-9);}
@@ -1732,7 +1733,26 @@ var OUV={
     {k:'coffrage',des:'Planche de coffrage',qte:up1(2*(L+W)*Math.max(1,Math.ceil(E/H-1e-9))),unite:'ML'},
     {k:'treillis',des:'Treillis soudé',qte:Math.min(nb(L,PL)*nb(W,PW),nb(L,PW)*nb(W,PL))*N,unite:'panneau'},
     {k:'polyane',des:'Film polyane',qte:up1(L*W*1.15),unite:'m²'}];
-   if(v.BL>0){var ba=v.BA||6,rc=0.5;it.push({k:'armature',des:'Armature de bêche',qte:v.BL<=ba?1:Math.ceil((v.BL-rc)/(ba-rc)-1e-9),unite:'pièce'});}
+   var c=(v.FC||5)/100,fer=0,liens=0;
+   if(v.BL>0&&v.BT!==2){var ba=v.BA||6,rc=0.5;it.push({k:'armature',des:'Armature de bêche (cage)',qte:v.BL<=ba?1:Math.ceil((v.BL-rc)/(ba-rc)-1e-9),unite:'pièce'});}
+   if(v.BL>0&&v.BT===2){
+    var bf=v.BF||4,joints=Math.max(0,Math.ceil(v.BL/6)-1),be=(v.BE||20)/100,ncad=Math.ceil(v.BL/be)+1,hb=E+v.BH/100;
+    var lb=bf*(v.BL+joints*0.5)+ncad*(2*((v.BW/100-2*c)+(hb-2*c))+0.2);
+    fer+=lb;liens+=ncad*bf;info.push(['Fer rond pour la bêche',fq(r1(lb))+' m ('+bf+' filants et '+ncad+' cadres)']);
+   }
+   if(v.MN>0&&v.MF){
+    var a=v.MA/100-2*c,bb=v.MB/100-2*c,hh=v.MH/100-2*c,e=(v.ME||20)/100;
+    if(a>0&&bb>0&&hh>0){
+     var nv=Math.ceil(2*(a+bb)/e-1e-9),nc=Math.ceil(hh/e-1e-9)+1,ga=Math.ceil(a/e-1e-9)+1,gb=Math.ceil(bb/e-1e-9)+1;
+     var lm=nv*(hh+0.3)+nc*(2*(a+bb)+0.2)+gb*a+ga*bb;
+     fer+=lm*v.MN;liens+=(nv*nc+ga*gb)*v.MN;info.push(['Fer rond pour les cubes',fq(r1(lm*v.MN))+' m au total (par cube : '+nv+' verticales, '+nc+' cadres et un fond quadrillé)']);
+    }
+   }
+   if(fer>0){
+    var ft=fer*(1+(v.FX||0)/100);
+    it.push({k:'fer',des:'Fer rond HA'+fq(v.FD||8)+', barre de 6 m',qte:Math.ceil(ft/6-1e-9),unite:'barre'});
+    it.push({k:'liens',des:'Liens acier (paquet de 1 000)',qte:Math.max(1,Math.ceil(liens/1000-1e-9)),unite:'paquet'});
+   }
    if(v.MN>0)it.push({k:'coffrage',des:'Planche de coffrage (cubes / massifs)',qte:up1(v.MN*2*(v.MA+v.MB)/100*Math.max(1,Math.ceil(v.MH/20-1e-9))),unite:'ML'});
    return {info:info,items:it};
   }},
