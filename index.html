@@ -50,6 +50,11 @@ input[type=range]{-webkit-appearance:auto;width:100%;margin:10px 0}
 .wx{font-size:12px;font-weight:400;color:#555;margin-top:2px;text-transform:none}
 .wxw{display:inline-block;background:#fff3cd;color:#7a4f00;border-radius:4px;padding:0 5px;font-size:11px;font-weight:700}
 .chip .wxw{background:rgba(255,255,255,.92)}
+.fiche{margin:6px 0 0;padding-left:20px}
+.fiche li{margin:0 0 6px;line-height:1.45}
+.cwarn{background:#fdecea;color:#a12a1d;border-radius:8px;padding:8px 10px;margin:10px 0 0;font-size:14px}
+.cwarn div{margin:2px 0}
+.cnote{background:#fff7ec;border-radius:8px;padding:8px 10px;margin:10px 0 0;font-size:13px}
 .veil{position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:35;display:none}
 .veil.open{display:block}
 main{max-width:1020px;margin:0 auto;padding:14px}
@@ -213,6 +218,7 @@ textarea{min-height:64px;resize:vertical}
  <a href="#parc"><span class="ic">🚜</span>Parc et locations</a>
  <a href="#renta"><span class="ic">📈</span>Rentabilité</a>
  <a href="#catalogue"><span class="ic">📋</span>Catalogue</a>
+ <a href="#fiches"><span class="ic">📚</span>Fiches techniques</a>
  <a href="#reglages"><span class="ic">⚙️</span>Réglages</a>
 </nav>
 <main id="app"></main>
@@ -1610,6 +1616,7 @@ function render(keep){
  else if(h==='clients'){cur=null;app.innerHTML=viewClients();$('clQ').addEventListener('input',function(){clF.q=this.value;$('clList').innerHTML=clientListHtml();});}
  else if(h.indexOf('client-')===0){cur=null;curC=getClient(h.slice(7));if(!curC){location.hash='#clients';return;}app.innerHTML=viewClient(curC);}
  else if(h==='renta'){cur=null;app.innerHTML=viewRenta();}
+ else if(h==='fiches'){cur=null;app.innerHTML=viewFiches();}
  else if(h==='parc'){cur=null;app.innerHTML=viewParc();}
  else if(h.indexOf('machine-')===0){cur=null;curM=getMachine(h.slice(8));if(!curM){location.hash='#parc';return;}app.innerHTML=viewMachine(curM);}
  else if(h.indexOf('location-')===0){cur=null;curL=getLoc(h.slice(9));if(!curL){location.hash='#parc';return;}app.innerHTML=viewLoc(curL);}
@@ -1715,24 +1722,38 @@ function openSig(who){
 }
 
 /* calculs d'ouvrage */
+function jointsPlan(L,W,Ecm){
+ var s=Math.min(5,Math.max(1,0.25*Ecm)),nL=Math.max(1,Math.ceil(L/s-1e-9)),nW=Math.max(1,Math.ceil(W/s-1e-9));
+ while((L/nL)*(W/nW)>25+1e-9){if(L/nL>=W/nW)nL++;else nW++;}
+ return {s:s,nL:nL,nW:nW,pl:L/nL,pw:W/nW,ml:(nL-1)*W+(nW-1)*L,prof:Math.ceil(Ecm/3*10)/10};
+}
+function ferBarres(m,fx){return Math.ceil(m*(1+(fx||0)/100)/6-1e-9);}
 var OUV={
- dalle:{t:'Dalle béton armé',f:[['L','Longueur (m)','4'],['W','Largeur (m)','4'],['E','Épaisseur (cm)','20'],['P','Marge de perte béton (%)','10'],['N','Nappes de treillis (1 ou 2)','2'],['R','Recouvrement treillis (cm)','20'],['PL','Panneau treillis longueur (m)','4'],['PW','Panneau treillis largeur (m)','2.4'],['H','Hauteur planche coffrage (cm)','20'],
+ dalle:{t:'Dalle béton armé',f:[['L','Longueur (m)','4'],['W','Largeur (m)','4'],['E','Épaisseur (cm), 12 minimum en maison individuelle','12'],['P','Marge de perte béton (%)','10'],['N','Nappes de treillis (1 ou 2)','1'],['R','Recouvrement treillis (cm)','20'],['PL','Panneau treillis longueur (m)','4'],['PW','Panneau treillis largeur (m)','2.4'],['H','Hauteur planche coffrage (cm)','20'],
+  ['_','Support'],['HE','Hérisson 20/40 ou 40/63 (cm), 0 si aucun','20'],['HD','Densité des cailloux (t/m³, à confirmer avec la carrière)','1.5'],
+  ['_','Joints de retrait sciés'],['JS','Ajouter le sciage des joints au devis (1 oui, 0 non)','1'],
   ['_','Option : bêche (rebord renforcé sous la dalle)'],['BL','Longueur de bêche (m), 0 si aucune','0'],['BW','Largeur de la bêche (cm)','30'],['BH','Profondeur sous la dalle (cm)','30'],['BT','Armature de bêche : 1 cage toute faite, 2 fer rond','1'],['BA','Longueur d’une cage de bêche (m)','6'],['BF','Fer rond : nombre de filants','4'],['BE','Fer rond : espacement des cadres (cm)','20'],
   ['_','Option : cubes ou massifs béton en plus'],['MN','Nombre de cubes / massifs','0'],['MA','Longueur (cm)','60'],['MB','Largeur (cm)','60'],['MH','Hauteur (cm)','60'],['MF','Armer les cubes en fer rond (1 oui, 0 non)','1'],['ME','Espacement des fers (cm)','20'],
   ['_','Ferraillage en fer rond'],['FD','Diamètre du fer (mm)','8'],['FC','Enrobage (cm)','5'],['FX','Chutes et recouvrements (%)','10']],
   c:function(v){
-   var L=v.L,W=v.W,E=v.E/100,R=v.R/100,PL=v.PL||4,PW=v.PW||2.4,H=(v.H||20)/100,N=v.N||1;
+   var L=v.L,W=v.W,E=v.E/100,R=v.R/100,PL=v.PL||4,PW=v.PW||2.4,H=(v.H||20)/100,N=v.N||1,warn=[];
    function nb(len,pan){if(len<=0)return 0;if(len<=pan)return 1;if(pan-R<=0)return 0;return Math.ceil((len-R)/(pan-R)-1e-9);}
    var vd=L*W*E,vb=v.BL*v.BW/100*v.BH/100,vm=v.MN*v.MA/100*v.MB/100*v.MH/100,theo=vd+vb+vm;
    var info=[['Surface',fq(r1(L*W))+' m²'],['Volume dalle',fq(r2c(vd))+' m³']];
    if(vb)info.push(['Volume bêche',fq(r2c(vb))+' m³']);
    if(vm)info.push(['Volume cubes / massifs',fq(r2c(vm))+' m³']);
    if(vb||vm)info.push(['Volume théorique total',fq(r2c(theo))+' m³']);
+   if(v.E<12)warn.push('Épaisseur sous le minimum du DTU 13.3 pour une maison individuelle (12 cm).');
+   if(R<0.15)warn.push('Recouvrement du treillis faible : compte au moins une à deux mailles.');
    var it=[
     {k:'béton',des:'Béton',qte:up1(theo*(1+v.P/100)),unite:'m³'},
     {k:'coffrage',des:'Planche de coffrage',qte:up1(2*(L+W)*Math.max(1,Math.ceil(E/H-1e-9))),unite:'ML'},
     {k:'treillis',des:'Treillis soudé',qte:Math.min(nb(L,PL)*nb(W,PW),nb(L,PW)*nb(W,PL))*N,unite:'panneau'},
-    {k:'polyane',des:'Film polyane',qte:up1(L*W*1.15),unite:'m²'}];
+    {k:'polyane',des:'Film polyane 150 µ',qte:up1(L*W*1.15),unite:'m²'}];
+   if(v.HE>0){var vh=L*W*v.HE/100;info.push(['Hérisson',fq(r2c(vh))+' m³ compacté']);it.push({k:'cailloux',des:'Cailloux 20/40 (hérisson)',qte:up1(vh*1.1*(v.HD||1.5)),unite:'t'});}
+   var jp=jointsPlan(L,W,v.E);
+   info.push(['Joints sciés',jp.ml>0?fq(r1(jp.ml))+' ML, profondeur '+fq(jp.prof)+' cm, '+(jp.nL*jp.nW)+' panneaux de '+fq(r1(jp.pl))+' × '+fq(r1(jp.pw))+' m':'aucun (dalle de moins de '+fq(r1(jp.s))+' m de côté)']);
+   if(v.JS&&jp.ml>0)it.push({k:'sciage',des:'Sciage de joints de retrait, profondeur '+fq(jp.prof)+' cm',qte:up1(jp.ml),unite:'ML',fac:1});
    var c=(v.FC||5)/100,fer=0,liens=0;
    if(v.BL>0&&v.BT!==2){var ba=v.BA||6,rc=0.5;it.push({k:'armature',des:'Armature de bêche (cage)',qte:v.BL<=ba?1:Math.ceil((v.BL-rc)/(ba-rc)-1e-9),unite:'pièce'});}
    if(v.BL>0&&v.BT===2){
@@ -1748,40 +1769,154 @@ var OUV={
      fer+=lm*v.MN;liens+=(nv*nc+ga*gb)*v.MN;info.push(['Fer rond pour les cubes',fq(r1(lm*v.MN))+' m au total (par cube : '+nv+' verticales, '+nc+' cadres et un fond quadrillé)']);
     }
    }
+   if(v.FC<3)warn.push('Enrobage inférieur à 3 cm : trop faible pour du béton en contact avec le sol.');
    if(fer>0){
-    var ft=fer*(1+(v.FX||0)/100);
-    it.push({k:'fer',des:'Fer rond HA'+fq(v.FD||8)+', barre de 6 m',qte:Math.ceil(ft/6-1e-9),unite:'barre'});
+    it.push({k:'fer',des:'Fer rond HA'+fq(v.FD||8)+', barre de 6 m',qte:ferBarres(fer,v.FX),unite:'barre'});
     it.push({k:'liens',des:'Liens acier (paquet de 1 000)',qte:Math.max(1,Math.ceil(liens/1000-1e-9)),unite:'paquet'});
    }
    if(v.MN>0)it.push({k:'coffrage',des:'Planche de coffrage (cubes / massifs)',qte:up1(v.MN*2*(v.MA+v.MB)/100*Math.max(1,Math.ceil(v.MH/20-1e-9))),unite:'ML'});
-   return {info:info,items:it};
+   return {info:info,items:it,warn:warn};
   }},
- semelle:{t:'Semelle filante',f:[['L','Longueur totale (m)','20'],['W','Largeur (cm)','50'],['E','Hauteur (cm)','30'],['P','Marge de perte béton (%)','10'],['C','Longueur d’une cage d’armature (m)','6'],['RC','Recouvrement des cages (cm)','50'],['K','Coffrer les deux côtés (1 oui, 0 non)','0']],
+ joints:{t:'Sciage de joints sur dalle',f:[['L','Longueur de la dalle (m)','10'],['W','Largeur de la dalle (m)','6'],['E','Épaisseur (cm)','12'],['X','Joints de dilatation à scier sur toute l’épaisseur (ML)','0']],
   c:function(v){
-   var L=v.L,theo=L*v.W/100*v.E/100,lc=v.C||6,rc=v.RC/100,cages=L<=0?0:L<=lc?1:Math.ceil((L-rc)/(lc-rc)-1e-9);
-   var it=[{k:'béton',des:'Béton',qte:up1(theo*(1+v.P/100)),unite:'m³'},{k:'semelle',des:'Cage d’armature semelle filante',qte:cages,unite:'u'}];
+   var jp=jointsPlan(v.L,v.W,v.E),info=[['Espacement maximal (environ 25 × épaisseur)',fq(r1(jp.s))+' m'],['Découpage',jp.nL+' × '+jp.nW+' panneaux de '+fq(r1(jp.pl))+' × '+fq(r1(jp.pw))+' m ('+fq(r1(jp.pl*jp.pw))+' m²)'],['Profondeur des joints de retrait (1/3)',fq(jp.prof)+' cm'],['Moment du sciage','8 à 24 h après le coulage selon la température']],it=[];
+   if(jp.ml>0)it.push({k:'sciage',des:'Sciage de joints de retrait, profondeur '+fq(jp.prof)+' cm',qte:up1(jp.ml),unite:'ML',fac:1});
+   if(v.X>0)it.push({k:'sciage',des:'Sciage de joint de dilatation, toute épaisseur ('+fq(v.E)+' cm)',qte:up1(v.X),unite:'ML',fac:1});
+   it.push({k:'mastic',des:'Mastic de joint (cartouche 300 ml)',qte:Math.max(1,Math.ceil((jp.ml+v.X)/6-1e-9)),unite:'cartouche'});
+   return {info:info,items:it,warn:[],note:'Mastic : environ 6 ML par cartouche pour un joint de 5 × 10 mm, à ajuster selon la largeur du trait de scie.'};
+  }},
+ semelle:{t:'Semelle filante',f:[['L','Longueur totale (m)','20'],['W','Largeur (cm), 40 minimum','50'],['E','Hauteur (cm), 25 minimum','30'],['F','Profondeur de fouille sous le sol fini (cm)','60'],['P','Marge de perte béton (%)','10'],['BP','Béton de propreté (cm), 0 si aucun','4'],['C','Longueur d’une cage d’armature (m)','6'],['RC','Recouvrement des cages (cm)','50'],['K','Coffrer les deux côtés (1 oui, 0 non)','0']],
+  c:function(v){
+   var L=v.L,theo=L*v.W/100*v.E/100,lc=v.C||6,rc=v.RC/100,cages=L<=0?0:L<=lc?1:Math.ceil((L-rc)/(lc-rc)-1e-9),warn=[];
+   var vf=L*v.W/100*(v.F+v.BP)/100;
+   if(v.W<40)warn.push('Largeur sous 40 cm, minimum courant d’une semelle filante armée.');
+   if(v.E<25)warn.push('Hauteur sous 25 cm, minimum courant d’une semelle filante armée.');
+   if(v.F<60)warn.push('Fouille à moins de 60 cm : sous la profondeur hors gel de référence du Pas-de-Calais (0,60 m, 0,70 m dans le Nord).');
+   var it=[{k:'béton',des:'Béton C25/30',qte:up1(theo*(1+v.P/100)),unite:'m³'},{k:'semelle',des:'Cage d’armature semelle filante (4 HA8 minimum)',qte:cages,unite:'u'}];
+   if(v.BP>0)it.push({k:'propreté',des:'Béton de propreté (150 kg/m³)',qte:up1(L*v.W/100*v.BP/100*(1+v.P/100)),unite:'m³'});
    if(v.K)it.push({k:'coffrage',des:'Planche de coffrage',qte:up1(2*L*Math.max(1,Math.ceil(v.E/20-1e-9))),unite:'ML'});
-   return {info:[['Volume théorique',fq(r2c(theo))+' m³']],items:it};
+   return {info:[['Volume théorique',fq(r2c(theo))+' m³'],['Terre à extraire (en place)',fq(r2c(vf))+' m³'],['Enrobage','3 cm sur béton de propreté, 6,5 cm coulé sur le sol']],items:it,warn:warn};
   }},
- plots:{t:'Plots / massifs béton',f:[['N','Nombre de plots','4'],['A','Longueur (cm)','50'],['B','Largeur (cm)','50'],['E','Profondeur (cm)','60'],['P','Marge de perte béton (%)','10']],
-  c:function(v){var theo=v.N*v.A/100*v.B/100*v.E/100;return {info:[['Volume théorique',fq(r2c(theo))+' m³']],items:[{k:'béton',des:'Béton',qte:up1(theo*(1+v.P/100)),unite:'m³'}]};}},
- mur:{t:'Mur en blocs béton',f:[['L','Longueur (m)','10'],['H','Hauteur (m)','2'],['O','Ouvertures à déduire (m²)','0'],['BL','Longueur d’un bloc (cm)','50'],['BH','Hauteur d’un bloc (cm)','20'],['P','Marge de casse (%)','5'],['S','Blocs par sac de mortier','12'],['CH','Rangs de chaînage horizontal','1']],
+ plots:{t:'Plots / massifs béton',f:[['N','Nombre de plots','4'],['A','Longueur (cm)','50'],['B','Largeur (cm)','50'],['E','Profondeur sous le sol fini (cm)','60'],['P','Marge de perte béton (%)','10']],
+  c:function(v){var theo=v.N*v.A/100*v.B/100*v.E/100,w=[];if(v.E<60)w.push('Profondeur sous la référence hors gel du Pas-de-Calais (0,60 m, 0,70 m dans le Nord).');return {info:[['Volume théorique',fq(r2c(theo))+' m³']],items:[{k:'béton',des:'Béton',qte:up1(theo*(1+v.P/100)),unite:'m³'}],warn:w};}},
+ mur:{t:'Mur ou muret en blocs béton',f:[['L','Longueur (m)','10'],['H','Hauteur (m)','1.5'],['O','Ouvertures à déduire (m²)','0'],['BL','Longueur d’un bloc (cm)','50'],['BH','Hauteur d’un bloc (cm)','20'],['P','Marge de casse (%)','5'],['MK','Mortier (kg par m² de mur)','35'],['SK','Poids d’un sac de mortier (kg)','35'],
+  ['_','Raidisseurs et chaînage'],['RS','Raidisseurs verticaux : espacement maximal (m)','2.5'],['CH','Rangs de chaînage horizontal','1'],['FX','Chutes et recouvrements (%)','10']],
   c:function(v){
-   var surf=Math.max(0,v.L*v.H-v.O),parM2=(v.BL&&v.BH)?10000/(v.BL*v.BH):10,blocs=Math.ceil(surf*parM2*(1+v.P/100)-1e-9);
-   var it=[{k:'bloc',des:'Bloc béton',qte:blocs,unite:'u'},{k:'mortier',des:'Mortier (sac)',qte:v.S?Math.ceil(blocs/v.S-1e-9):0,unite:'sac'}];
-   if(v.CH)it.push({k:'chaînage',des:'Chaînage horizontal',qte:up1(v.L*v.CH),unite:'ML'});
-   return {info:[['Surface de mur',fq(r1(surf))+' m²'],['Blocs par m²',fq(r1(parM2))]],items:it};
+   var surf=Math.max(0,v.L*v.H-v.O),parM2=(v.BL&&v.BH)?10000/(v.BL*v.BH):10,blocs=Math.ceil(surf*parM2*(1+v.P/100)-1e-9),warn=[];
+   var nr=v.L>0?Math.max(2,Math.ceil(v.L/(v.RS||2.5)-1e-9)+1):0,nj=Math.max(0,Math.ceil(v.L/8-1e-9)-1);nr+=2*nj;
+   var f8=nr*4*(v.H+0.4),f10=v.CH*2*(v.L+Math.max(0,Math.ceil(v.L/6)-1)*0.5);
+   if(v.H>2)warn.push('Mur de plus de 2 m : le guide de la profession demande l’intervention d’un bureau d’études.');
+   if(v.RS>8)warn.push('Raidisseurs à plus de 8 m : au delà du maximum autorisé.');
+   var it=[{k:'bloc',des:'Bloc béton '+fq(v.BL)+' × '+fq(v.BH),qte:blocs,unite:'u'},{k:'mortier',des:'Mortier (sac de '+fq(v.SK||35)+' kg)',qte:v.SK?Math.ceil(surf*v.MK/v.SK-1e-9):0,unite:'sac'}];
+   if(f8>0)it.push({k:'fer',des:'Fer rond HA8, barre de 6 m (raidisseurs 4 HA8)',qte:ferBarres(f8,v.FX),unite:'barre'});
+   if(f10>0)it.push({k:'fer',des:'Fer rond HA10, barre de 6 m (chaînage 2 HA10)',qte:ferBarres(f10,v.FX),unite:'barre'});
+   if(v.L>0)it.push({k:'couvertine',des:'Couvertine / chaperon',qte:up1(v.L),unite:'ML'});
+   return {info:[['Surface de mur',fq(r1(surf))+' m²'],['Blocs par m²',fq(r1(parM2))],['Raidisseurs',nr+' (extrémités, joints de dilatation et tous les '+fq(v.RS)+' m)'],['Joints de dilatation',nj?nj+' (tous les 8 m au plus)':'aucun (mur de 8 m ou moins)']],items:it,warn:warn,note:'Espacement des raidisseurs (mur de 20 cm, 4 HA8, vent région 2, terrain dégagé) : 6,2 m pour 1 m de haut, 2,5 m pour 1,5 m de haut. Fondation de clôture : 50 cm de profondeur et de largeur minimum.'};
   }},
  terrassement:{t:'Terrassement / déblai',f:[['L','Longueur (m)','10'],['W','Largeur (m)','5'],['E','Profondeur (cm)','40'],['F','Foisonnement (%)','25'],['T','Capacité d’un camion (m³)','10']],
   c:function(v){
    var place=v.L*v.W*v.E/100,fois=place*(1+v.F/100),rot=v.T?Math.ceil(fois/v.T-1e-9):0;
-   return {info:[['Volume en place',fq(r2c(place))+' m³'],['Volume foisonné',fq(r2c(fois))+' m³']],items:[{k:'terrassement',des:'Terrassement en déblai',qte:up1(place),unite:'m³'},{k:'évacuation',des:'Évacuation des terres',qte:up1(fois),unite:'m³'},{k:'camion',des:'Rotation camion',qte:rot,unite:'u'}]};
+   return {info:[['Volume en place',fq(r2c(place))+' m³'],['Volume foisonné',fq(r2c(fois))+' m³']],items:[{k:'terrassement',des:'Terrassement en déblai',qte:up1(place),unite:'m³'},{k:'évacuation',des:'Évacuation des terres',qte:up1(fois),unite:'m³'},{k:'camion',des:'Rotation camion',qte:rot,unite:'u'}],warn:[],note:'Foisonnement indicatif : terre végétale 20 à 25 %, limon 20 à 30 %, argile 25 à 35 %, craie 30 à 50 %, roche 40 à 80 %.'};
   }},
- enrobe:{t:'Enrobé',f:[['S','Surface (m²)','50'],['E','Épaisseur (cm)','5'],['D','Densité (t/m³)','2.35'],['P','Marge de perte (%)','5']],
-  c:function(v){var t=v.S*v.E/100*v.D*(1+v.P/100);return {info:[['Volume',fq(r2c(v.S*v.E/100))+' m³']],items:[{k:'enrobé',des:'Enrobé',qte:up1(t),unite:'t'}]};}},
- granulats:{t:'Granulats (grave, sable, gravier)',f:[['S','Surface (m²)','50'],['E','Épaisseur (cm)','15'],['D','Densité (t/m³)','1.8'],['P','Marge de compactage et perte (%)','15']],
-  c:function(v){var m3=v.S*v.E/100*(1+v.P/100);return {info:[['Volume avec marge',fq(r2c(m3))+' m³']],items:[{k:'grave',des:'Granulats',qte:up1(m3*v.D),unite:'t'}]};}}
+ enrobe:{t:'Enrobé',f:[['S','Surface (m²)','50'],['E','Épaisseur (cm), 4 à 6 en couche de roulement','5'],['D','Densité (t/m³)','2.40'],['P','Marge de perte (%)','5']],
+  c:function(v){var t=v.S*v.E/100*v.D*(1+v.P/100),w=[];if(v.E<4)w.push('Épaisseur sous 4 cm, minimum courant d’une couche de roulement.');return {info:[['Volume',fq(r2c(v.S*v.E/100))+' m³']],items:[{k:'enrobé',des:'Enrobé',qte:up1(t),unite:'t'}],warn:w};}},
+ granulats:{t:'Granulats (grave, sable, gravier)',f:[['S','Surface (m²)','50'],['E','Épaisseur (cm)','15'],['D','Densité (t/m³, à confirmer avec la carrière)','1.8'],['P','Marge de compactage et perte (%)','15']],
+  c:function(v){var m3=v.S*v.E/100*(1+v.P/100);return {info:[['Volume avec marge',fq(r2c(m3))+' m³']],items:[{k:'grave',des:'Granulats',qte:up1(m3*v.D),unite:'t'}],warn:[],note:'Remblais et formes : compacter par couches de 20 cm au plus.'};}}
 };
+/* ---------- fiches techniques (règles de l'art, sources) ---------- */
+var SRC={
+ dtu133:{t:'Obat, NF DTU 13.3 : règles des dallages sur terre-plein',u:'https://www.obat.fr/blog/dtu-13-3-regles-fondations/'},
+ ffb133:{t:'FFB, NF DTU 13.3 : plus de rigueur dans la mise en œuvre des dallages',u:'https://www.ffbatiment.fr/actualites-batiment/actualite-bam/nf-dtu-13-3-plus-de-rigueur-dans-la-definition-et-la-mise-en-oeuvre-des-dallages'},
+ aqcdal:{t:'AQC, fiche pathologie A.05 : affaissement de dallage (maisons individuelles)',u:'https://qualiteconstruction.com/wp-content/uploads/2024/01/fi-pathologie-batiment-a05-affaissement-dallage-maisons-individuelles.pdf'},
+ deal:{t:'DEAL Martinique, fiche chantier 11 : plancher béton (renvoi au DTU 13.3 partie 3)',u:'https://www.martinique.developpement-durable.gouv.fr/IMG/pdf/fiche_11_-_plancher_beton_2020.pdf'},
+ cemex:{t:'Cemex, fiche technique cailloux de drainage (hérisson)',u:'https://www.cemex.fr/fiches-techniques/cailloux-de-drainage'},
+ febel:{t:'FEBELCEM (fédération de l’industrie cimentière), fiche sols extérieurs en béton',u:'https://www.febelcem.be/fileadmin/user_upload/Fiches-techniques/fr/solext_fr.pdf'},
+ febel2:{t:'FEBELCEM, dossier sols en béton (béton faiblement armé à joints sciés)',u:'https://www.febelcem.be/fileadmin/user_upload/dossiers-ciment-94-08/fr/23_fr.pdf'},
+ chausson:{t:'Chausson Matériaux, notice joint de fractionnement (H/3 selon DTU 13.3)',u:'https://www.chausson.fr/media/article-document/273527'},
+ lesmat:{t:'Les Matériaux, fiche conseil dallage béton (joints)',u:'https://www.lesmateriaux.fr/uploads/advice/pdf/03-dallage-beton.pdf'},
+ horsgel:{t:'Koncrete, profondeur hors gel par département (NF P 94-261, annexe O)',u:'https://www.koncrete.fr/blog/profondeur-hors-gel-par-departement'},
+ ffbgel:{t:'FFB, Bâtimétiers n° 46 : calcul de la profondeur hors gel',u:'https://www.ffbatiment.fr/revues-guides/bam/46-mars-2017/foire-aux-questions'},
+ capeb:{t:'CAPEB, calepin de chantier fondations de maisons individuelles',u:'https://www.capeb.fr/www/capeb/media//herault/document/calepin%20-%20fondations%20MI.pdf'},
+ fib:{t:'FIB (industrie du béton), guide de bonnes pratiques : murs de clôture en blocs béton (NF DTU 20.1)',u:'https://fib.org/wp-content/uploads/2025/04/Guide-Clotures-en-blocs-en-beton-012.pdf'},
+ dtu201:{t:'Legalnest, NF DTU 20.1 : murs en maçonnerie',u:'https://www.legalnest.fr/batiment/dtu/20-1-maconnerie-murs-en-parpaing'},
+ hello:{t:'Hellopro, parpaing 20 × 20 × 50 : rendement de pose',u:'https://conseils.hellopro.fr/bloc-beton-empilable-ou-parpaing-quelle-difference-6107.html'},
+ vpi:{t:'VPI, fiche technique Mortier Pro 300 (consommation en montage de blocs)',u:'https://www.vpi.vicat.fr/content/download/11500/96933/version/8/file/FT+MORTIER+PRO+300+_+06.2023.pdf'},
+ lafarge:{t:'Lafarge, guide de dosage ciment (béton armé, dallages)',u:'https://www.lafarge.fr/sites/france/files/documents/durabatciment2020.pdf'},
+ cemexmb:{t:'Cemex, fiche mélange à béton (dosage par m³)',u:'https://www.cemex.fr/documents/51489845/51521743/FP_Melange+a+beton.pdf/a59283e4-3a01-acda-eebd-85703d309e2f'},
+ fois:{t:'MaCalculatrice, coefficients de foisonnement usuels par type de sol',u:'https://macalculatriceenligne.com/construction/calcul-volume-excavation/'},
+ macalc:{t:'MaCalculatrice, calcul d’épaisseur de dalle béton (joints et mastic)',u:'https://macalculatriceenligne.com/construction/calcul-dalle-beton-epaisseur/'},
+ enrobe:{t:'Travail Industrie, calcul d’enrobé (NF EN 13108, densité BBSG)',u:'https://travail-industrie.com/outils/calculateur-enrobe-routier'}
+};
+var FICHES=[
+ {id:'dalle',titre:'Dalle et dallage sur terre-plein',ouv:'dalle',r:[
+  ['Épaisseur minimale : 12 cm en maison individuelle, 13 cm pour les autres bâtiments non industriels, 15 cm en dallage industriel.','dtu133'],
+  ['En maison individuelle, armatures d’au moins 0,2 % de la section de béton du dallage dans chaque sens.','deal'],
+  ['Support : sol compacté par couches de 20 cm au plus, y compris le long des murs. Décaper la terre végétale (environ 30 cm). Le DTU demande un module du support d’au moins 30 MPa (essai à la plaque).','aqcdal'],
+  ['Sur sol argileux ou au delà de 40 cm de remblai, préférer un plancher sur vide sanitaire au dallage sur terre-plein.','aqcdal'],
+  ['Hérisson ou forme : cailloux propres 20/40 ou 40/63, sur environ 20 cm, pour couper les remontées d’humidité.','cemex'],
+  ['Si un film polyéthylène est prévu : 150 microns minimum, macro-perforé.','ffb133'],
+  ['Joints sciés : profondeur d’au moins un tiers de l’épaisseur, sciés 8 à 24 h après le coulage selon la température.','febel'],
+  ['Espacement des joints : 4 m au plus pour 16 cm d’épaisseur, 5 m au plus pour 20 cm (soit environ 25 fois l’épaisseur), panneaux de 20 à 25 m² au plus, plutôt carrés, sans angle aigu.','febel'],
+  ['Prévoir un joint scié à chaque angle rentrant, et désolidariser la dalle des poteaux, murs et regards.','lesmat'],
+  ['Béton fait sur chantier : les guides des cimentiers donnent 400 kg de ciment par m³ pour les dallages et le béton armé, 350 kg/m³ pour le béton non armé.','lafarge']]},
+ {id:'sciage',titre:'Sciage de sol : joints de retrait et de dilatation',ouv:'joints',r:[
+  ['Joint de retrait : profondeur d’un tiers de l’épaisseur (DTU 13.3 : H/3 à 10 mm près).','chausson'],
+  ['Largeur du trait de scie : 2 à 5 mm. Le treillis n’est pas coupé.','lesmat'],
+  ['Moment du sciage : entre 8 et 24 h après le coulage, selon la température.','febel'],
+  ['Les joints doivent être sciés avant que les tensions de retrait dépassent la résistance du béton, sinon la fissure part ailleurs.','febel2'],
+  ['Espacement : environ 25 fois l’épaisseur (3 m pour 12 cm, 4 m pour 16 cm, 5 m pour 20 cm), panneaux de 25 m² au plus.','febel'],
+  ['Joint de dilatation : traverse toute l’épaisseur, 10 à 20 mm de large, le treillis est coupé.','lesmat'],
+  ['Les joints sont ensuite comblés avec un mastic (polyuréthane ou silicone), avant la pose d’un éventuel revêtement.','macalc']]},
+ {id:'fondation',titre:'Fondations : semelles filantes, plots, hors gel',ouv:'semelle',r:[
+  ['Hors gel : profondeur de référence H0 de 0,60 m dans le Pas-de-Calais et la Somme, 0,70 m dans le Nord (jusqu’à 150 m d’altitude). Au dessus de 150 m : H = H0 + (A − 150) / 4000.','horsgel'],
+  ['La profondeur hors gel se mesure du sol extérieur fini jusqu’à la sous-face de la fondation.','ffbgel'],
+  ['Semelle filante armée (maison individuelle) : hauteur 25 cm et largeur 40 cm au minimum, au moins 1,6 cm² d’acier, soit 4 HA8.','capeb'],
+  ['Enrobage : 3 cm sur béton de propreté, 6,5 cm si la semelle est coulée directement sur le sol, 5 cm en milieu agressif ou marin.','capeb'],
+  ['Béton de semelle : C25/30 (exposition XC2) ou 350 kg de ciment par m³, consistance S3 minimum, sans ajout d’eau sur chantier.','capeb'],
+  ['Béton de propreté : C16/20 ou 150 kg de ciment par m³, 4 cm minimum.','fib'],
+  ['Gros béton (non armé) : C20/25 ou 250 kg de ciment par m³.','capeb'],
+  ['Recouvrement des armatures : 50 fois le diamètre (40 cm en HA8, 50 cm en HA10).','fib'],
+  ['Sur sol argileux sensible au retrait gonflement : 0,80 m minimum en aléa moyen, 1,20 m en aléa fort.','fib']]},
+ {id:'mur',titre:'Murs et murets en blocs béton (clôture)',ouv:'mur',r:[
+  ['Rendement : environ 10 blocs de 20 × 20 × 50 par m² avec des joints de 1 cm.','hello'],
+  ['Mortier : environ 35 kg de mortier sec par m² de mur en blocs creux de 20 × 20 × 50 (joints horizontaux).','vpi'],
+  ['Joints épais de 1 à 2 cm, décalage des blocs d’un rang à l’autre entre un tiers et la moitié de la longueur.','fib'],
+  ['Fondation d’un mur de clôture : 50 cm de profondeur minimum, 50 cm de large, débord de 15 cm de chaque côté d’un mur de 20 cm, béton C25/30, enrobage 30 mm.','fib'],
+  ['Raidisseurs verticaux : à chaque extrémité, de part et d’autre de chaque joint de dilatation, et tous les 8 m au plus. Section minimale 1,5 cm² (4 HA8), dans une réservation de 15 × 15 cm.','fib'],
+  ['Espacement des raidisseurs selon la hauteur (mur de 20 cm, 4 HA8, région de vent 2, terrain dégagé) : 6,2 m pour 1 m de haut, 2,5 m pour 1,5 m de haut. Au delà de 2 m de hauteur, faire appel à un bureau d’études.','fib'],
+  ['Chaînage horizontal en tête de mur : au moins 1,5 cm² d’acier (2 HA10), barres continues et recouvrement de 50 diamètres.','fib'],
+  ['Joints de dilatation tous les 8 m au plus, sur toute la hauteur.','fib'],
+  ['Couvertine ou chaperon obligatoire, avec goutte d’eau. Enduit au plus tôt 1 mois après la maçonnerie, et enduit étanche sur au moins 15 cm au dessus du sol fini.','fib'],
+  ['En bâtiment : chaînage horizontal obligatoire à chaque plancher ou dallage.','dtu201']]},
+ {id:'beton',titre:'Dosage du béton fait sur chantier',ouv:'',r:[
+  ['Cemex : 2 t de mélange à béton, 350 kg de ciment et 170 L d’eau pour faire 1 m³ de béton.','cemexmb'],
+  ['Règle de terrain 1-2-3 : 1 volume de ciment (32,5 minimum), 2 de sable, 3 de gravier, un demi volume d’eau.','fib'],
+  ['Lafarge : 400 kg de ciment par m³ pour les dallages, planchers et ouvrages en béton armé, 350 kg/m³ pour le béton non armé.','lafarge'],
+  ['Semelles armées : C25/30 ou 350 kg/m³ minimum ; béton de propreté 150 kg/m³ ; gros béton 250 kg/m³.','capeb']]},
+ {id:'terrassement',titre:'Terrassement et foisonnement',ouv:'terrassement',r:[
+  ['Foisonnement (volume excavé / volume en place) : terre végétale 1,20 à 1,25, limon 1,20 à 1,30, argile 1,25 à 1,35, craie ou marne 1,30 à 1,50, roche 1,40 à 1,80. Valeurs indicatives à confirmer sur le chantier.','fois'],
+  ['Toujours appliquer le foisonnement pour compter les bennes ou les camions.','fois'],
+  ['Remblais : compacter par couches de 20 cm au plus.','aqcdal']]},
+ {id:'enrobe',titre:'Enrobé et granulats',ouv:'enrobe',r:[
+  ['Tonnage d’enrobé = surface × épaisseur × densité. Densité d’un BBSG compacté : environ 2,40 t/m³. Couche de roulement : 4 à 6 cm.','enrobe'],
+  ['Prévoir une petite marge (environ 5 %) pour les pertes et les reprises.','enrobe']]}
+];
+function srcLink(k,n){var s=SRC[k];return s?'<a href="'+s.u+'" target="_blank" class="small">['+n+']</a>':'';}
+function ficheHtml(f,compact){
+ var used=[],h='';
+ f.r.forEach(function(r){if(used.indexOf(r[1])<0)used.push(r[1]);});
+ h+='<ul class="fiche">'+f.r.map(function(r){return '<li>'+esc(r[0])+' '+srcLink(r[1],used.indexOf(r[1])+1)+'</li>';}).join('')+'</ul>';
+ if(!compact)h+='<p class="small muted" style="margin:6px 0 0">Sources : '+used.map(function(k,i){return '['+(i+1)+'] <a href="'+SRC[k].u+'" target="_blank">'+esc(SRC[k].t)+'</a>';}).join(' ; ')+'</p>';
+ return h;
+}
+function viewFiches(){
+ var h='<div class="card"><h1>Fiches techniques</h1><p class="small muted">Résumé des règles de l’art trouvées dans des sources de la profession (DTU, normes, fédérations, fabricants). Ces repères ne remplacent ni les DTU complets, ni l’étude de sol, ni un bureau d’études pour les ouvrages qui en demandent un.</p>';
+ h+='<div>'+FICHES.map(function(f){return '<button class="btn sec small" data-a="goFiche" data-id="'+f.id+'">'+esc(f.titre)+'</button>';}).join('')+'</div></div>';
+ FICHES.forEach(function(f){h+='<div class="card" id="fc_'+f.id+'"><h2>'+esc(f.titre)+'</h2>'+ficheHtml(f,false)+'</div>';});
+ return h;
+}
+function ficheFor(ouv){for(var i=0;i<FICHES.length;i++)if(FICHES[i].ouv===ouv)return FICHES[i];return null;}
+
 var calcType='dalle';
 function r1(n){return Math.round(n*10)/10;}
 function r2c(n){return Math.round(n*100)/100;}
@@ -1832,16 +1967,22 @@ function calcShow(){
  if(mo)h+='<div><span>Main d’œuvre : <b>'+fq(mo)+' h</b> × '+eur(tx)+'</span><b>'+eur(moc)+'</b></div>';
  h+='<div class="big" style="display:flex;justify-content:space-between;font-weight:700;color:#d9731a;font-size:17px;border-top:1px solid #ddd;margin-top:4px;padding-top:8px"><span>Coût approximatif'+(miss?' (hors '+miss+' prix inconnu'+(miss>1?'s':'')+')':'')+'</span><span>'+eur(tot+moc)+'</span></div>';
  h+='<p class="small muted" style="margin:4px 0 0">Prix repris de tes derniers devis fournisseurs et de ton catalogue, hors transport et frais fixes. Plus tu colles de devis, plus l’estimation est juste.</p>';
+ if(r.warn&&r.warn.length)h+='<div class="cwarn">'+r.warn.map(function(w){return '<div>⚠ '+esc(w)+'</div>';}).join('')+'</div>';
+ if(r.note)h+='<div class="cnote">'+esc(r.note)+'</div>';
+ var fc=ficheFor(calcType==='plots'?'semelle':calcType==='granulats'?'enrobe':calcType);
+ if(fc)h+='<div class="cnote"><b>Bon à savoir : '+esc(fc.titre)+'</b>'+ficheHtml(fc,true)+'<a href="#fiches" class="small">Voir toutes les fiches techniques et leurs sources</a></div>';
  $('calcres').innerHTML=h;
 }
 function calcAdd(){
  var r=calcRes(),tv=$('cT').value,p;
  if(tv==='new'){p=newPoste('client','Matériaux');if(cur.dateChantier)p.dateCommande=addDays(cur.dateChantier,-num(state.settings.delaiCommande));cur.postes.push(p);}
  else p=cur.postes[+tv];
+ var pf=null;
  r.items.forEach(function(it){
   if(!it.qte)return;
-  var pr=priceFor(it);
-  p.lignes.push(newLigne(pr?pr.des:it.des,it.qte,pr?pr.unite:it.unite,pr?String(pr.pu).replace('.',','):''));
+  var pr=priceFor(it),tgt=p;
+  if(it.fac){if(!pf){pf=newPoste('facture','Sciage');cur.postes.push(pf);}tgt=pf;}
+  tgt.lignes.push(newLigne(it.fac?it.des:(pr?pr.des:it.des),it.qte,pr?pr.unite:it.unite,pr?String(pr.pu).replace('.',','):''));
  });
  touch();save();closeModal();render(true);toast('Quantités et prix ajoutés');
 }
@@ -2019,6 +2160,7 @@ document.addEventListener('click',function(e){
   case 'pasteNew':
    var pn=newPoste('client','Fournitures');if(cur.dateChantier)pn.dateCommande=addDays(cur.dateChantier,-num(s.delaiCommande));
    cur.postes.push(pn);touch();save();render(true);openPaste(cur.postes.length-1);break;
+  case 'goFiche':var fe=$('fc_'+el.getAttribute('data-id'));if(fe)fe.scrollIntoView();break;
   case 'chAll':chF.all=!chF.all;render(true);break;
   case 'syncNow':sync(true);break;
   case 'syncSave':
