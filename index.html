@@ -1716,16 +1716,25 @@ function openSig(who){
 
 /* calculs d'ouvrage */
 var OUV={
- dalle:{t:'Dalle béton armé',f:[['L','Longueur (m)','4'],['W','Largeur (m)','4'],['E','Épaisseur (cm)','20'],['P','Marge de perte béton (%)','10'],['N','Nappes de treillis (1 ou 2)','2'],['R','Recouvrement treillis (cm)','20'],['PL','Panneau treillis longueur (m)','4'],['PW','Panneau treillis largeur (m)','2.4'],['H','Hauteur planche coffrage (cm)','20']],
+ dalle:{t:'Dalle béton armé',f:[['L','Longueur (m)','4'],['W','Largeur (m)','4'],['E','Épaisseur (cm)','20'],['P','Marge de perte béton (%)','10'],['N','Nappes de treillis (1 ou 2)','2'],['R','Recouvrement treillis (cm)','20'],['PL','Panneau treillis longueur (m)','4'],['PW','Panneau treillis largeur (m)','2.4'],['H','Hauteur planche coffrage (cm)','20'],
+  ['_','Option : bêche (rebord renforcé sous la dalle)'],['BL','Longueur de bêche (m), 0 si aucune','0'],['BW','Largeur de la bêche (cm)','30'],['BH','Profondeur sous la dalle (cm)','30'],['BA','Longueur d’une armature de bêche (m)','6'],
+  ['_','Option : cubes ou massifs béton en plus'],['MN','Nombre de cubes / massifs','0'],['MA','Longueur (cm)','60'],['MB','Largeur (cm)','60'],['MH','Hauteur (cm)','60']],
   c:function(v){
    var L=v.L,W=v.W,E=v.E/100,R=v.R/100,PL=v.PL||4,PW=v.PW||2.4,H=(v.H||20)/100,N=v.N||1;
    function nb(len,pan){if(len<=0)return 0;if(len<=pan)return 1;if(pan-R<=0)return 0;return Math.ceil((len-R)/(pan-R)-1e-9);}
-   var theo=L*W*E;
-   return {info:[['Surface',fq(r1(L*W))+' m²'],['Volume théorique',fq(r2c(theo))+' m³']],items:[
+   var vd=L*W*E,vb=v.BL*v.BW/100*v.BH/100,vm=v.MN*v.MA/100*v.MB/100*v.MH/100,theo=vd+vb+vm;
+   var info=[['Surface',fq(r1(L*W))+' m²'],['Volume dalle',fq(r2c(vd))+' m³']];
+   if(vb)info.push(['Volume bêche',fq(r2c(vb))+' m³']);
+   if(vm)info.push(['Volume cubes / massifs',fq(r2c(vm))+' m³']);
+   if(vb||vm)info.push(['Volume théorique total',fq(r2c(theo))+' m³']);
+   var it=[
     {k:'béton',des:'Béton',qte:up1(theo*(1+v.P/100)),unite:'m³'},
     {k:'coffrage',des:'Planche de coffrage',qte:up1(2*(L+W)*Math.max(1,Math.ceil(E/H-1e-9))),unite:'ML'},
     {k:'treillis',des:'Treillis soudé',qte:Math.min(nb(L,PL)*nb(W,PW),nb(L,PW)*nb(W,PL))*N,unite:'panneau'},
-    {k:'polyane',des:'Film polyane',qte:up1(L*W*1.15),unite:'m²'}]};
+    {k:'polyane',des:'Film polyane',qte:up1(L*W*1.15),unite:'m²'}];
+   if(v.BL>0){var ba=v.BA||6,rc=0.5;it.push({k:'armature',des:'Armature de bêche',qte:v.BL<=ba?1:Math.ceil((v.BL-rc)/(ba-rc)-1e-9),unite:'pièce'});}
+   if(v.MN>0)it.push({k:'coffrage',des:'Planche de coffrage (cubes / massifs)',qte:up1(v.MN*2*(v.MA+v.MB)/100*Math.max(1,Math.ceil(v.MH/20-1e-9))),unite:'ML'});
+   return {info:info,items:it};
   }},
  semelle:{t:'Semelle filante',f:[['L','Longueur totale (m)','20'],['W','Largeur (cm)','50'],['E','Hauteur (cm)','30'],['P','Marge de perte béton (%)','10'],['C','Longueur d’une cage d’armature (m)','6'],['RC','Recouvrement des cages (cm)','50'],['K','Coffrer les deux côtés (1 oui, 0 non)','0']],
   c:function(v){
@@ -1766,7 +1775,7 @@ function openCalc(){
  '<button class="btn" data-a="calcAdd">Ajouter au devis</button><button class="btn sec" data-a="close">Fermer</button>');
  function fields(){
   var o=OUV[calcType];
-  $('calcf').innerHTML='<div class="grid">'+o.f.map(function(x){return '<div><label>'+x[1]+'</label><input id="cf_'+x[0]+'" inputmode="decimal" value="'+x[2]+'"></div>';}).join('')+'</div>';
+  $('calcf').innerHTML='<div class="grid">'+o.f.map(function(x){if(x[0]==='_')return '</div><h3 style="font-size:15px;margin:14px 0 0;color:#d9731a">'+x[1]+'</h3><div class="grid">';return '<div><label>'+x[1]+'</label><input id="cf_'+x[0]+'" inputmode="decimal" value="'+x[2]+'"></div>';}).join('')+'</div>';
   calcShow();
  }
  $('cTy').addEventListener('change',function(){calcType=this.value;fields();});
@@ -1774,7 +1783,7 @@ function openCalc(){
  $('cMO').addEventListener('input',calcShow);
  fields();
 }
-function calcRes(){var o=OUV[calcType],v={};o.f.forEach(function(x){var el=$('cf_'+x[0]);v[x[0]]=el?num(el.value):num(x[2]);});return o.c(v);}
+function calcRes(){var o=OUV[calcType],v={};o.f.forEach(function(x){if(x[0]==='_')return;var el=$('cf_'+x[0]);v[x[0]]=el?num(el.value):num(x[2]);});return o.c(v);}
 function normU(u){return String(u||'').toLowerCase().replace(/³/g,'3').replace(/²/g,'2').replace(/\s/g,'');}
 function priceFor(it){
  var k=it.k,u=normU(it.unite),best=null;
