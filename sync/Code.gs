@@ -87,6 +87,12 @@ function writeSheets_(sum) {
   });
 }
 
+// À exécuter une fois depuis l'éditeur pour autoriser l'accès à Google Agenda
+function autoriserAgenda() {
+  var cal = calendar_();
+  Logger.log('Agenda prêt : ' + cal.getName());
+}
+
 // Agenda Google "Chantiers" : rendez vous et rappels envoyés par l'appli
 function calendar_() {
   var l = CalendarApp.getCalendarsByName(CAL_NAME);
