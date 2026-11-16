@@ -1590,6 +1590,7 @@ function pasteOk(i){
  if(r.devisDate&&!p.devisDate)p.devisDate=r.devisDate;
  if(r.note&&!p.note)p.note=r.note;
  if(r.fournisseur&&(!p.titre||p.titre==='Fournitures'))p.titre='Fournitures '+r.fournisseur;
+ r.lignes.forEach(function(l){if(!num(l.pu))return;var ex=findCat(l.des),f=r.fournisseur||p.fournisseur||'';if(ex){ex.unite=l.unite;ex.pu=l.pu;if(f)ex.fournisseur=f;ex.modifieLe=Date.now();}else state.catalogue.push({id:uid(),des:l.des,unite:l.unite,pu:l.pu,fournisseur:f,modifieLe:Date.now()});});
  touch();save();closeModal();render(true);toast(r.lignes.length+' ligne'+(r.lignes.length>1?'s':'')+' ajoutée'+(r.lignes.length>1?'s':''));
 }
 
@@ -1760,7 +1761,7 @@ function openCalc(){
  var opts='<option value="new">Nouveau poste "Matériaux" (payé client)</option>';
  cur.postes.forEach(function(p,i){opts+='<option value="'+i+'">Poste '+(i+1)+' : '+esc(p.titre||'sans titre')+'</option>';});
  var types=Object.keys(OUV).map(function(k){return '<option value="'+k+'"'+sel(calcType,k)+'>'+OUV[k].t+'</option>';}).join('');
- showModal('<h2>Calcul d’ouvrage</h2><label>Ouvrage</label><select id="cTy">'+types+'</select><div id="calcf"></div><div class="calcres" id="calcres"></div><label>Ajouter dans</label><select id="cT">'+opts+'</select>'+
+ showModal('<h2>Calcul d’ouvrage</h2><label>Ouvrage</label><select id="cTy">'+types+'</select><div id="calcf"></div><div class="grid"><div><label>Main d’œuvre estimée (heures au total, facultatif)</label><input id="cMO" inputmode="decimal" placeholder="ex : 16"></div></div><div class="calcres" id="calcres"></div><label>Ajouter dans</label><select id="cT">'+opts+'</select>'+
  '<p class="small muted">Quantités indicatives : tous les coefficients sont modifiables. Les prix sont repris du catalogue quand un article correspond.</p>'+
  '<button class="btn" data-a="calcAdd">Ajouter au devis</button><button class="btn sec" data-a="close">Fermer</button>');
  function fields(){
@@ -1770,13 +1771,38 @@ function openCalc(){
  }
  $('cTy').addEventListener('change',function(){calcType=this.value;fields();});
  $('calcf').addEventListener('input',calcShow);
+ $('cMO').addEventListener('input',calcShow);
  fields();
 }
 function calcRes(){var o=OUV[calcType],v={};o.f.forEach(function(x){var el=$('cf_'+x[0]);v[x[0]]=el?num(el.value):num(x[2]);});return o.c(v);}
+function normU(u){return String(u||'').toLowerCase().replace(/³/g,'3').replace(/²/g,'2').replace(/\s/g,'');}
+function priceFor(it){
+ var k=it.k,u=normU(it.unite),best=null;
+ function consider(des,unite,pu,date,src){
+  if(!num(pu)||String(des||'').toLowerCase().indexOf(k)<0)return;
+  if(u&&normU(unite)&&normU(unite)!==u){
+   var cm=String(des).match(/(\d+(?:[.,]\d+)?)\s*(m²|m2|m³|m3|ml|kg|l)(?![a-z0-9])/i);
+   if(!cm||normU(cm[2])!==u||!num(cm[1]))return;
+   pu=num(pu)/num(cm[1]);src+=', '+fq(cm[1])+' '+cm[2]+' par '+unite;unite=it.unite;
+  }
+  if(!best||String(date)>String(best.date))best={des:des,unite:unite||it.unite,pu:num(pu),date:date||'',src:src};
+ }
+ state.catalogue.forEach(function(c){consider(c.des,c.unite,c.pu,c.modifieLe?iso(new Date(c.modifieLe)):'','catalogue'+(c.fournisseur?', '+c.fournisseur:''));});
+ state.devis.forEach(function(d){d.postes.forEach(function(p){p.lignes.forEach(function(l){var dt=p.devisDate||d.date;consider(l.des,l.unite,l.pu,dt,(p.fournisseur?p.fournisseur+', ':'')+'devis du '+frDate(dt));});});});
+ return best;
+}
 function calcShow(){
- var r=calcRes(),h='';
+ var r=calcRes(),h='',tot=0,miss=0;
  r.info.forEach(function(x){h+='<div><span>'+x[0]+'</span><b>'+x[1]+'</b></div>';});
- r.items.forEach(function(it){h+='<div><span>'+it.des+'</span><b>'+fq(it.qte)+' '+it.unite+'</b></div>';});
+ r.items.forEach(function(it){
+  if(!it.qte)return;
+  var pr=priceFor(it),c=pr?it.qte*pr.pu:0;tot+=c;if(!pr)miss++;
+  h+='<div><span>'+it.des+' : <b>'+fq(it.qte)+' '+it.unite+'</b><br><span class="small muted">'+(pr?eur(pr.pu)+' / '+esc(pr.unite)+' ('+esc(pr.src)+')':'prix inconnu pour l’instant')+'</span></span><b>'+(pr?eur(c):'?')+'</b></div>';
+ });
+ var mo=num($('cMO')&&$('cMO').value),tx=num(state.settings.taux),moc=mo*tx;
+ if(mo)h+='<div><span>Main d’œuvre : <b>'+fq(mo)+' h</b> × '+eur(tx)+'</span><b>'+eur(moc)+'</b></div>';
+ h+='<div class="big" style="display:flex;justify-content:space-between;font-weight:700;color:#d9731a;font-size:17px;border-top:1px solid #ddd;margin-top:4px;padding-top:8px"><span>Coût approximatif'+(miss?' (hors '+miss+' prix inconnu'+(miss>1?'s':'')+')':'')+'</span><span>'+eur(tot+moc)+'</span></div>';
+ h+='<p class="small muted" style="margin:4px 0 0">Prix repris de tes derniers devis fournisseurs et de ton catalogue, hors transport et frais fixes. Plus tu colles de devis, plus l’estimation est juste.</p>';
  $('calcres').innerHTML=h;
 }
 function calcAdd(){
@@ -1785,11 +1811,10 @@ function calcAdd(){
  else p=cur.postes[+tv];
  r.items.forEach(function(it){
   if(!it.qte)return;
-  var c=null;
-  for(var i=0;i<state.catalogue.length;i++){if(String(state.catalogue[i].des).toLowerCase().indexOf(it.k)>=0){c=state.catalogue[i];break;}}
-  p.lignes.push(newLigne(c?c.des:it.des,it.qte,c&&c.unite?c.unite:it.unite,c?c.pu:''));
+  var pr=priceFor(it);
+  p.lignes.push(newLigne(pr?pr.des:it.des,it.qte,pr?pr.unite:it.unite,pr?String(pr.pu).replace('.',','):''));
  });
- touch();save();closeModal();render(true);toast('Quantités ajoutées');
+ touch();save();closeModal();render(true);toast('Quantités et prix ajoutés');
 }
 
 /* sauvegarde */
